@@ -1,0 +1,37 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+@theme inline {
+  --color-background: var(--bg-page);
+  --color-foreground: var(--text-primary);
+  --color-brand: var(--brand-600);
+  --color-brand-hover: var(--brand-700);
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Inter",
+    sans-serif;
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  font-family: -apple-system, BlinkMacSystemFont, var(--font-geist-sans), "Inter",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--bg-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--brand-100);
+  color: var(--brand-900);
+}

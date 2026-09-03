@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  checks:
+    name: Lint, typecheck, Prisma
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nutaschola
+          POSTGRES_PASSWORD: nutaschola
+          POSTGRES_DB: nutaschola
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nutaschola -d nutaschola"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://nutaschola:nutaschola@localhost:5432/nutaschola?schema=public
+      DIRECT_URL: postgresql://nutaschola:nutaschola@localhost:5432/nutaschola?schema=public
+      AUTH_SECRET: ci-auth-secret-not-for-production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma validate
+        run: npx prisma validate
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Generate Next.js types
+        run: npx next typegen
+
+      - name: Migration dry-run (diff against empty DB)
+        run: |
+          npx prisma migrate diff \
+            --from-empty \
+            --to-schema-datamodel prisma/schema.prisma \
+            --script > /tmp/schema.sql
+          test -s /tmp/schema.sql
+
+      - name: Apply migrations (CI DB)
+        run: npx prisma migrate deploy
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint

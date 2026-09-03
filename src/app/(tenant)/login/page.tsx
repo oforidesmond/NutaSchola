@@ -1,0 +1,94 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useState } from "react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
+import { Button, Input } from "@/components/ui/primitives";
+import { loginAction } from "./actions";
+
+function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "");
+    const password = String(form.get("password") ?? "");
+
+    const result = await loginAction(email, password);
+    setLoading(false);
+
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+
+    router.push(callbackUrl);
+    router.refresh();
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+      <Input
+        label="Email"
+        name="email"
+        type="email"
+        autoComplete="email"
+        required
+        placeholder="you@school.edu.gh"
+      />
+      <Input
+        label="Password"
+        name="password"
+        type="password"
+        autoComplete="current-password"
+        required
+      />
+      {error ? (
+        <p className="rounded-[var(--radius-sm)] bg-[var(--error-50)] px-3 py-2 text-[15px] text-[var(--error-700)]">
+          {error}
+        </p>
+      ) : null}
+      <Button type="submit" loading={loading}>
+        Sign in
+      </Button>
+      <p className="text-center text-[15px] text-[var(--gray-600)]">
+        Forgot password?{" "}
+        <Link href="/reset-password" className="font-medium text-[var(--brand-700)]">
+          Reset it
+        </Link>
+      </p>
+    </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,var(--brand-50),var(--gray-50))] px-4 py-10">
+      <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--gray-200)] bg-[var(--white)] p-8 shadow-[var(--shadow-md)]">
+        <div className="mb-8 flex flex-col items-center gap-4 text-center">
+          <BrandLogo width={168} />
+          <div>
+            <h1 className="text-[28px] font-semibold tracking-[-0.005em] text-[var(--gray-900)]">
+              Staff sign in
+            </h1>
+            <p className="mt-1 text-[15px] text-[var(--gray-600)]">
+              Use the account invited by your school administrator.
+            </p>
+          </div>
+        </div>
+        <Suspense fallback={<p className="text-center text-[var(--gray-500)]">Loading…</p>}>
+          <LoginForm />
+        </Suspense>
+      </div>
+    </div>
+  );
+}

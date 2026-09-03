@@ -1,0 +1,171 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+import { Button, Input, Textarea } from "@/components/ui/primitives";
+import { updateSchoolSettings } from "./actions";
+
+type SchoolSettingsFormProps = {
+  school: {
+    name: string;
+    address: string | null;
+    city: string | null;
+    region: string | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+  };
+  settings: {
+    admissionNumberPrefix: string;
+    applicationNumberPrefix: string;
+    enableOnlineApplication: boolean;
+    enableSmsNotifications: boolean;
+    enableEmailNotifications: boolean;
+  };
+  currentAcademicYearName: string | null;
+};
+
+export function SchoolSettingsForm({
+  school,
+  settings,
+  currentAcademicYearName,
+}: SchoolSettingsFormProps) {
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage(null);
+    setError(null);
+
+    const result = await updateSchoolSettings(new FormData(event.currentTarget));
+    setLoading(false);
+
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+
+    setMessage("Settings saved.");
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex max-w-2xl flex-col gap-6">
+      <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+        <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">School profile</h2>
+        <p className="mt-1 text-[15px] text-[var(--gray-600)]">
+          Details shown on letters and staff screens for Excellence Kids.
+        </p>
+        <div className="mt-5 grid gap-4">
+          <Input label="School name" name="name" defaultValue={school.name} required />
+          <Textarea
+            label="Address"
+            name="address"
+            defaultValue={school.address ?? ""}
+            placeholder="Street address"
+          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input label="City" name="city" defaultValue={school.city ?? ""} />
+            <Input
+              label="Region"
+              name="region"
+              defaultValue={school.region ?? ""}
+              placeholder="e.g. Greater Accra"
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Contact email"
+              name="contactEmail"
+              type="email"
+              defaultValue={school.contactEmail ?? ""}
+            />
+            <Input
+              label="Contact phone"
+              name="contactPhone"
+              defaultValue={school.contactPhone ?? ""}
+              placeholder="+233…"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+        <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">
+          Numbering & notifications
+        </h2>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <Input
+            label="Admission number prefix"
+            name="admissionNumberPrefix"
+            defaultValue={settings.admissionNumberPrefix}
+            required
+          />
+          <Input
+            label="Application number prefix"
+            name="applicationNumberPrefix"
+            defaultValue={settings.applicationNumberPrefix}
+            required
+          />
+        </div>
+        <div className="mt-5 space-y-3">
+          <label className="flex min-h-11 items-center gap-3 text-[15px] text-[var(--gray-800)]">
+            <input
+              type="checkbox"
+              name="enableOnlineApplication"
+              defaultChecked={settings.enableOnlineApplication}
+              className="size-4 rounded border-[var(--gray-300)] text-[var(--brand-600)]"
+            />
+            Enable online applications
+          </label>
+          <label className="flex min-h-11 items-center gap-3 text-[15px] text-[var(--gray-800)]">
+            <input
+              type="checkbox"
+              name="enableEmailNotifications"
+              defaultChecked={settings.enableEmailNotifications}
+              className="size-4 rounded border-[var(--gray-300)] text-[var(--brand-600)]"
+            />
+            Enable email notifications
+          </label>
+          <label className="flex min-h-11 items-center gap-3 text-[15px] text-[var(--gray-800)]">
+            <input
+              type="checkbox"
+              name="enableSmsNotifications"
+              defaultChecked={settings.enableSmsNotifications}
+              className="size-4 rounded border-[var(--gray-300)] text-[var(--brand-600)]"
+            />
+            Enable SMS notifications
+          </label>
+        </div>
+      </section>
+
+      <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--brand-50)] p-6">
+        <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">
+          Current academic year
+        </h2>
+        <p className="mt-2 text-base text-[var(--gray-700)]">
+          {currentAcademicYearName ?? "No current year set"}
+        </p>
+        <p className="mt-1 text-[15px] text-[var(--gray-600)]">
+          Creating and switching academic years is part of Phase 2. The seeded year is
+          shown here so settings are complete for day-one use.
+        </p>
+      </section>
+
+      {error ? (
+        <p className="rounded-[var(--radius-sm)] bg-[var(--error-50)] px-3 py-2 text-[15px] text-[var(--error-700)]">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="rounded-[var(--radius-sm)] bg-[var(--success-50)] px-3 py-2 text-[15px] text-[var(--success-700)]">
+          {message}
+        </p>
+      ) : null}
+
+      <Button type="submit" loading={loading} className="self-start">
+        Save settings
+      </Button>
+    </form>
+  );
+}
