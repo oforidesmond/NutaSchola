@@ -1,16 +1,6 @@
-import { PageHeader } from "@/components/ui/primitives";
-import { InviteStaffForm } from "./InviteStaffForm";
+import { redirect } from "next/navigation";
 
-export default function InviteStaffPage() {
-  return (
-    <div>
-      <PageHeader
-        title="Invite staff"
-        description="Create an invited account and send an accept-invite link."
-      />
-      <div className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
-        <InviteStaffForm />
-      </div>
-    </div>
-  );
+/** Legacy path — staff management now lives at /staff. */
+export default function StaffInviteRedirectPage() {
+  redirect("/staff");
 }

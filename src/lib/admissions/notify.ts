@@ -1,5 +1,5 @@
 import type { AdmissionStage } from "@prisma/client";
-import { sendEmail } from "@/lib/mail";
+import { sendEmail, admissionStatusEmail } from "@/lib/mail";
 import { admissionStageLabel } from "@/lib/admissions/stages";
 import { logger } from "@/lib/errors/logger";
 
@@ -28,19 +28,22 @@ export async function notifyStageChange(input: {
   if (!input.guardian?.email) return;
 
   const stageLabel = admissionStageLabel(input.stage);
-  const lines = [
-    `Dear ${input.guardian.firstName} ${input.guardian.lastName},`,
-    "",
-    `The admission application ${input.applicationNumber} for ${input.applicantName} has moved to: ${stageLabel}.`,
-  ];
-  if (input.note) lines.push("", `Note: ${input.note}`);
-  lines.push("", `— ${input.schoolName} Admissions`);
+  const content = admissionStatusEmail({
+    schoolName: input.schoolName,
+    guardianFirstName: input.guardian.firstName,
+    guardianLastName: input.guardian.lastName,
+    applicantName: input.applicantName,
+    applicationNumber: input.applicationNumber,
+    stageLabel,
+    note: input.note,
+  });
 
   try {
     await sendEmail({
       to: input.guardian.email,
-      subject: `${input.schoolName} admissions update — ${stageLabel}`,
-      text: lines.join("\n"),
+      subject: content.subject,
+      text: content.text,
+      html: content.html,
     });
   } catch (error) {
     logger.error("admissions.notify_failed", {

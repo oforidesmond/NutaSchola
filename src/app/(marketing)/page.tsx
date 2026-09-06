@@ -23,7 +23,7 @@ export default function MarketingHomePage() {
             {brand.tagline}
           </p>
           <p className="mt-6 max-w-xl text-base text-[var(--gray-600)]">
-            School management for Ghanaian schools — admissions, fees, attendance, academics, and parent portal.
+            School Management System for Admissions, Fees, Attendance, Academics, and Parent Portal.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/login">
@@ -32,15 +32,15 @@ export default function MarketingHomePage() {
           </div>
         </section>
 
-        <section className="surface-raised p-6 sm:p-8">
+        {/* <section className="surface-raised p-6 sm:p-8">
           <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">
             Built for Creche through JHS 3
           </h2>
           <p className="mt-2 text-base text-[var(--gray-600)]">
-            Designed for front-desk staff on everyday hardware and occasionally flaky
-            connections — calm screens, clear status, and GHS-native defaults.
+            Designed for front-desk staff on everyday hardware and occasionally unreliable
+            connections.
           </p>
-        </section>
+        </section> */}
       </main>
 
       <footer className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">

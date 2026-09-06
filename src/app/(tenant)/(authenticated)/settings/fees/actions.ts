@@ -21,7 +21,7 @@ export async function updateAdmissionFeeAction(
   formData: FormData,
 ): Promise<ActionResult<{ saved: true }>> {
   try {
-    const { tenant } = await requireAction(ACTIONS.SCHOOL_SETTINGS_UPDATE);
+    const { tenant } = await requireAction(ACTIONS.FEES_MANAGE);
 
     const parsed = schema.safeParse({
       feeItemId: formData.get("feeItemId"),

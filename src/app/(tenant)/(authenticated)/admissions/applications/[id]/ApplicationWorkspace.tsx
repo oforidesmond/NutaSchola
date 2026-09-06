@@ -55,6 +55,7 @@ export function ApplicationWorkspace({
   canConvert,
   convertBlockedReason,
   alreadyConverted,
+  permissions,
 }: {
   application: ApplicationBio;
   guardians: GuardianRow[];
@@ -64,6 +65,13 @@ export function ApplicationWorkspace({
   canConvert: boolean;
   convertBlockedReason: string | null;
   alreadyConverted: boolean;
+  permissions: {
+    canUpdate: boolean;
+    canStage: boolean;
+    canDocuments: boolean;
+    canFees: boolean;
+    canConvertAction: boolean;
+  };
 }) {
   const nextAction = getAdmissionNextAction({
     stage: application.stage,
@@ -71,7 +79,7 @@ export function ApplicationWorkspace({
     uploadedDocumentTypes: documents.map((d) => d.type),
     hasInvoice: Boolean(invoice),
     amountPaid: invoice ? Number(invoice.amountPaid) : 0,
-    canConvert,
+    canConvert: canConvert && permissions.canConvertAction,
     alreadyConverted,
     convertBlockedReason,
   });
@@ -103,15 +111,18 @@ export function ApplicationWorkspace({
           currentStage={application.stage}
           alreadyConverted={alreadyConverted}
           emphasized={nextAction.focus === "stage"}
+          readOnly={!permissions.canStage}
         />
         <FeePanel
           applicationId={application.id}
           invoice={invoice}
           emphasized={nextAction.focus === "fee"}
+          readOnly={!permissions.canFees}
         />
       </div>
 
-      {canConvert || alreadyConverted || nextAction.focus === "convert" ? (
+      {permissions.canConvertAction &&
+      (canConvert || alreadyConverted || nextAction.focus === "convert") ? (
         <ConvertPanel
           applicationId={application.id}
           canConvert={canConvert}
@@ -120,25 +131,47 @@ export function ApplicationWorkspace({
           convertedStudent={application.convertedStudent}
           emphasized={canConvert || nextAction.focus === "convert"}
         />
+      ) : alreadyConverted ? (
+        <ConvertPanel
+          applicationId={application.id}
+          canConvert={false}
+          convertBlockedReason={null}
+          alreadyConverted={alreadyConverted}
+          convertedStudent={application.convertedStudent}
+        />
       ) : null}
 
-      <BioSection application={application} />
+      <BioSection application={application} readOnly={!permissions.canUpdate} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <GuardiansPanel applicationId={application.id} guardians={guardians} />
-        <DocumentsPanel applicationId={application.id} documents={documents} />
+        <GuardiansPanel
+          applicationId={application.id}
+          guardians={guardians}
+          readOnly={!permissions.canUpdate}
+        />
+        <DocumentsPanel
+          applicationId={application.id}
+          documents={documents}
+          readOnly={!permissions.canDocuments}
+        />
       </div>
 
       <StatusHistoryPanel history={statusHistory} />
 
-      {!alreadyConverted ? (
+      {!alreadyConverted && permissions.canUpdate ? (
         <DangerZone applicationId={application.id} />
       ) : null}
     </div>
   );
 }
 
-function BioSection({ application }: { application: ApplicationBio }) {
+function BioSection({
+  application,
+  readOnly = false,
+}: {
+  application: ApplicationBio;
+  readOnly?: boolean;
+}) {
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -187,9 +220,11 @@ function BioSection({ application }: { application: ApplicationBio }) {
             </p>
           </div>
         </div>
-        <Button type="button" variant="secondary" onClick={() => setEditing((v) => !v)}>
-          {editing ? "Cancel" : "Edit bio-data"}
-        </Button>
+        {!readOnly ? (
+          <Button type="button" variant="secondary" onClick={() => setEditing((v) => !v)}>
+            {editing ? "Cancel" : "Edit bio-data"}
+          </Button>
+        ) : null}
       </div>
 
       {message ? (
@@ -203,7 +238,7 @@ function BioSection({ application }: { application: ApplicationBio }) {
         </p>
       ) : null}
 
-      {editing ? (
+      {editing && !readOnly ? (
         <form onSubmit={onSubmit} className="mt-5 flex flex-col gap-4">
           <input type="hidden" name="applicationId" value={application.id} />
           <div className="grid gap-4 sm:grid-cols-3">

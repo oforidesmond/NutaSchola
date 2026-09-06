@@ -3,27 +3,33 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import type { UserRole } from "@prisma/client";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { VendorCredit } from "@/components/brand/VendorCredit";
 import { brand } from "@/config/brand";
-import { NAV_GROUPS, isNavItemActive } from "./nav";
+import { getNavGroupsForRole, isNavItemActive, type NavGroup } from "./nav";
+import { UserMenu } from "./UserMenu";
 
 type TenantShellProps = {
   children: React.ReactNode;
   userName: string;
   schoolName: string;
+  role: UserRole;
   signOutAction: () => Promise<void>;
+  mustChangePassword?: boolean;
 };
 
 export function TenantShell({
   children,
   userName,
   schoolName,
+  role,
   signOutAction,
+  mustChangePassword = false,
 }: TenantShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navGroups = getNavGroupsForRole(role);
 
   return (
     <div className="flex min-h-screen bg-[var(--bg-page)] text-[var(--text-primary)]">
@@ -31,30 +37,25 @@ export function TenantShell({
       <aside className="glass-heavy sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-[var(--border-subtle)] lg:flex">
         <div className="flex items-center justify-center border-b border-[var(--border-subtle)] px-3 py-2">
           <Link
-            href="/dashboard"
+            href={mustChangePassword ? "/account/change-password" : "/dashboard"}
             className="focus-ring block rounded-[var(--radius-sm)]"
           >
             <BrandLogo width={128} />
           </Link>
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4">
-          <SidebarNav pathname={pathname} onNavigate={() => setMobileOpen(false)} />
-        </nav>
-        <div className="border-t border-[var(--border-subtle)] p-3">
-          <div className="mb-2 px-2">
-            <p className="truncate text-[13px] font-medium text-[var(--gray-900)]">{userName}</p>
-            <p className="truncate text-[12px] text-[var(--gray-500)]">{schoolName}</p>
+        {!mustChangePassword ? (
+          <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4">
+            <SidebarNav
+              pathname={pathname}
+              groups={navGroups}
+              onNavigate={() => setMobileOpen(false)}
+            />
+          </nav>
+        ) : (
+          <div className="flex-1 px-4 py-6 text-[13px] text-[var(--gray-600)]">
+            Set a new password to continue using the app.
           </div>
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="focus-ring flex min-h-11 w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 text-[15px] font-medium text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
-            >
-              <LogOut className="h-4 w-4" aria-hidden />
-              Sign out
-            </button>
-          </form>
-        </div>
+        )}
       </aside>
 
       {/* Mobile drawer */}
@@ -78,41 +79,44 @@ export function TenantShell({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4">
-              <SidebarNav pathname={pathname} onNavigate={() => setMobileOpen(false)} />
-            </nav>
-            <div className="border-t border-[var(--border-subtle)] p-3">
-              <p className="truncate px-2 text-[13px] font-medium text-[var(--gray-900)]">
-                {userName}
-              </p>
-              <p className="mb-2 truncate px-2 text-[12px] text-[var(--gray-500)]">{schoolName}</p>
-              <form action={signOutAction}>
-                <button
-                  type="submit"
-                  className="focus-ring flex min-h-11 w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 text-[15px] font-medium text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
-                >
-                  <LogOut className="h-4 w-4" aria-hidden />
-                  Sign out
-                </button>
-              </form>
-            </div>
+            {!mustChangePassword ? (
+              <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4">
+                <SidebarNav
+                  pathname={pathname}
+                  groups={navGroups}
+                  onNavigate={() => setMobileOpen(false)}
+                />
+              </nav>
+            ) : (
+              <div className="flex-1 px-4 py-6 text-[13px] text-[var(--gray-600)]">
+                Set a new password to continue using the app.
+              </div>
+            )}
           </aside>
         </div>
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="glass-light sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-[var(--border-subtle)] px-4 lg:hidden">
+        <header className="glass-light sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-[var(--border-subtle)] px-4 sm:px-6">
           <button
             type="button"
-            className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] hover:bg-[var(--gray-100)]"
+            className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] hover:bg-[var(--gray-100)] lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="text-[15px] font-semibold text-[var(--gray-900)]">
+          <span className="text-[15px] font-semibold text-[var(--gray-900)] lg:hidden">
             {brand.productName}
           </span>
+          <div className="ml-auto">
+            <UserMenu
+              userName={userName}
+              schoolName={schoolName}
+              signOutAction={signOutAction}
+              mustChangePassword={mustChangePassword}
+            />
+          </div>
         </header>
         <main className="motion-enter mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
           {children}
@@ -124,14 +128,16 @@ export function TenantShell({
 
 function SidebarNav({
   pathname,
+  groups,
   onNavigate,
 }: {
   pathname: string;
+  groups: NavGroup[];
   onNavigate: () => void;
 }) {
   return (
     <div className="flex flex-col gap-5">
-      {NAV_GROUPS.map((group) => (
+      {groups.map((group) => (
         <div key={group.id}>
           {group.label ? (
             <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--gray-500)]">

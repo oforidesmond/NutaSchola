@@ -266,6 +266,7 @@ async function main() {
       passwordHash,
       schoolId: school.id,
       deletedAt: null,
+      mustChangePassword: true,
     },
     create: {
       email: adminEmail,
@@ -275,12 +276,16 @@ async function main() {
       status: UserStatus.ACTIVE,
       passwordHash,
       schoolId: school.id,
+      mustChangePassword: true,
     },
   });
 
   console.log(`Seeded school "${school.name}" (${school.slug})`);
   console.log(`Class levels: ${CLASS_LEVELS.length}, subjects: ${SUBJECTS.length}`);
   console.log(`Admin login: ${adminEmail}`);
+  console.log(
+    "Super admin: run `npm run db:seed:super-admin` (see prisma/seed-super-admin.ts)",
+  );
 }
 
 main()

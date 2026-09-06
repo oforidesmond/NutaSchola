@@ -278,3 +278,53 @@ Visual/structural polish across the staff app. No schema, permission, or admissi
 - Migrating every remaining raw `<select>` to `Select` (touched pages prefer shared styles; not a full sweep).
 - White reversed logo SVG; document delete/replace; inquiry-only intake.
 - Phase 4+ modules (attendance, academics depth, parent portal, etc.).
+
+---
+
+## 2026-09-06 — Real email, password reset & staff invite lifecycle
+
+Extends Phase 1 auth/mail scaffolding (does not replace Auth.js Credentials + JWT or the invite/`VerificationToken` model).
+
+### Mailer (`src/lib/mail/`)
+
+- Provider switch: `EMAIL_PROVIDER=smtp` + configured `SMTP_*` → **nodemailer SMTP**; otherwise **dev-log** (console) with no throw — CI / fresh checkouts keep working.
+- Files: `index.ts`, `types.ts`, `providers/smtp.ts`, `providers/dev-log.ts`, `templates/` (shell + invite / password-reset / admissions-status builders).
+- Shared branded HTML + plain-text shell (Excellence Kids blue `#0C6C9C`, logo PNG, single CTA, table layout / inline styles).
+- Call sites: invite, password reset, admissions stage-change ([`notify.ts`](src/lib/admissions/notify.ts)) — one path only.
+
+**Env var names** (values blank in [`.env.example`](.env.example); real credentials only in local `.env` / Vercel):
+
+`EMAIL_PROVIDER`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`
+
+### `mustChangePassword`
+
+- Prisma field on `User`, default `false`. Migration: [`prisma/migrations/20260906193445_must_change_password`](prisma/migrations/20260906193445_must_change_password/migration.sql).
+- Seeded admin upsert sets `mustChangePassword: true` (known default password).
+- `/account/change-password` — current + new + confirm; clears flag on success. Sidebar account link in [`TenantShell`](src/components/layout/TenantShell.tsx).
+- Authenticated layout re-reads DB: if flag set, only `/account/change-password` is reachable (nav hidden). Accept-invite leaves flag `false`.
+
+### Staff lifecycle (`/staff`)
+
+- Replaces invite-only form. Nav: Staff → `/staff`. Legacy `/staff/invite` redirects.
+- List statuses: **Active**, **Invited (pending)**, **Invite expired**, plus inactive.
+- Actions (all gated by `staff.invite`): invite, resend (invalidates old token), revoke pending (`deletedAt`), deactivate / reactivate (`INACTIVE` / `ACTIVE` — not hard delete).
+- Invite TTL: **48 hours**. Accept-invite still single-use; invited users set their own password (`mustChangePassword` never applies).
+
+### Password reset hardening
+
+- Reset TTL: **1 hour** (was shared 48h). Anti-enumeration response unchanged.
+- Throttle: in-memory ~60s cooldown per email/IP on reset-request and invite/resend ([`src/lib/auth/throttle.ts`](src/lib/auth/throttle.ts)). Per-process only — not shared across serverless instances.
+- **Token hashing fixed now:** `VerificationToken.token` stores `sha256(raw)`; email/link carries raw hex. Contained to [`tokens.ts`](src/lib/auth/tokens.ts).
+- Confirm-password + min length 8 on reset, accept-invite, and change-password forms.
+
+### JWT / session limitations (documented, not fixed this pass)
+
+- JWT sessions cannot be centrally revoked. Password change/reset does **not** invalidate other active session cookies until they expire.
+- Deactivate sets `status: INACTIVE`. Login already blocks inactive users. **Also** `requireSession` + authenticated layout re-check DB status/`deletedAt` on each request so access fails closed on the next navigation/server action (not an instantaneous kill of an isolated JWT).
+
+### Intentionally unfinished / deferred (carry-forward)
+
+- Auth.js Prisma adapter / DB sessions (would enable true server-side session revoke).
+- `STAFF_MANAGE` still unused — whole staff screen uses `staff.invite`.
+- SMS; multi-instance distributed rate limiting.
+- Phase 4+ modules; platform admin; Postgres RLS.

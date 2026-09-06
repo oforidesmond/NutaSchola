@@ -32,7 +32,11 @@ function LoginForm() {
       return;
     }
 
-    router.push(callbackUrl);
+    const next =
+      result.data.redirectTo === "/account/change-password"
+        ? result.data.redirectTo
+        : callbackUrl;
+    router.push(next);
     router.refresh();
   }
 

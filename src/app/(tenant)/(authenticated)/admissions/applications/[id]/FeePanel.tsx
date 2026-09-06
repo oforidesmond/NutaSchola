@@ -39,10 +39,12 @@ export function FeePanel({
   applicationId,
   invoice,
   emphasized = false,
+  readOnly = false,
 }: {
   applicationId: string;
   invoice: InvoiceView;
   emphasized?: boolean;
+  readOnly?: boolean;
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,9 +104,11 @@ export function FeePanel({
           <p className="text-[15px] text-[var(--gray-600)]">
             No admission fee invoice has been generated for this application yet.
           </p>
-          <Button type="button" loading={loading} onClick={onGenerateInvoice} className="self-start">
-            Generate admission fee invoice
-          </Button>
+          {!readOnly ? (
+            <Button type="button" loading={loading} onClick={onGenerateInvoice} className="self-start">
+              Generate admission fee invoice
+            </Button>
+          ) : null}
         </div>
       ) : (
         <div className="mt-4 flex flex-col gap-4">
@@ -172,7 +176,7 @@ export function FeePanel({
             </div>
           ) : null}
 
-          {balance > 0 ? (
+          {balance > 0 && !readOnly ? (
             <form
               onSubmit={onRecordPayment}
               className="flex flex-col gap-4 border-t border-[var(--gray-100)] pt-4"
@@ -211,6 +215,10 @@ export function FeePanel({
                 Record payment
               </Button>
             </form>
+          ) : balance > 0 && readOnly ? (
+            <p className="text-[15px] text-[var(--gray-600)]">
+              Outstanding balance: {formatGhs(balance)}. You can view fees but cannot record payments.
+            </p>
           ) : (
             <p className="rounded-[var(--radius-sm)] bg-[var(--success-50)] px-3 py-2 text-[15px] text-[var(--success-700)]">
               Fully paid.

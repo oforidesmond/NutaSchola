@@ -8,10 +8,12 @@ export function AdmissionFeeForm({
   feeItemId,
   itemName,
   amount,
+  readOnly = false,
 }: {
   feeItemId: string;
   itemName: string;
   amount: string;
+  readOnly?: boolean;
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +21,7 @@ export function AdmissionFeeForm({
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (readOnly) return;
     setLoading(true);
     setError(null);
     setMessage(null);
@@ -40,7 +43,13 @@ export function AdmissionFeeForm({
     <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
       <input type="hidden" name="feeItemId" value={feeItemId} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input label="Fee item name" name="itemName" defaultValue={itemName} required />
+        <Input
+          label="Fee item name"
+          name="itemName"
+          defaultValue={itemName}
+          required
+          disabled={readOnly}
+        />
         <Input
           label="Amount (GHS)"
           name="amount"
@@ -49,6 +58,7 @@ export function AdmissionFeeForm({
           min="0.01"
           defaultValue={amount}
           required
+          disabled={readOnly}
           className="font-variant-numeric tabular-nums"
         />
       </div>
@@ -65,9 +75,11 @@ export function AdmissionFeeForm({
           {error}
         </p>
       ) : null}
-      <Button type="submit" loading={loading} className="self-start">
-        Save admission fee
-      </Button>
+      {!readOnly ? (
+        <Button type="submit" loading={loading} className="self-start">
+          Save admission fee
+        </Button>
+      ) : null}
     </form>
   );
 }

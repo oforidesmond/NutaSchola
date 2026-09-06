@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { PageHeader, StatusBadge } from "@/components/ui/primitives";
 import { Breadcrumb } from "@/components/ui/Card";
-import { requireAction } from "@/lib/auth/session";
-import { ACTIONS } from "@/lib/permissions";
+import { requirePageAccess } from "@/lib/auth/session";
+import { ACTIONS, can } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
 import {
   admissionStageLabel,
@@ -21,7 +21,15 @@ export default async function ApplicationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { tenant } = await requireAction(ACTIONS.ADMISSIONS_READ);
+  const { user, tenant } = await requirePageAccess(ACTIONS.ADMISSIONS_READ);
+
+  const permissions = {
+    canUpdate: can(user.role, ACTIONS.ADMISSIONS_UPDATE),
+    canStage: can(user.role, ACTIONS.ADMISSIONS_STAGE),
+    canDocuments: can(user.role, ACTIONS.ADMISSIONS_DOCUMENTS),
+    canFees: can(user.role, ACTIONS.ADMISSIONS_FEES),
+    canConvertAction: can(user.role, ACTIONS.ADMISSIONS_CONVERT),
+  };
 
   const application = await prisma.admissionApplication.findFirst({
     where: { id, schoolId: tenant.schoolId, deletedAt: null },
@@ -181,6 +189,7 @@ export default async function ApplicationDetailPage({
         canConvert={canConvert}
         convertBlockedReason={convertBlockedReason}
         alreadyConverted={alreadyConverted}
+        permissions={permissions}
       />
     </div>
   );

@@ -23,12 +23,14 @@ type SchoolSettingsFormProps = {
     enableEmailNotifications: boolean;
   };
   currentAcademicYearName: string | null;
+  readOnly?: boolean;
 };
 
 export function SchoolSettingsForm({
   school,
   settings,
   currentAcademicYearName,
+  readOnly = false,
 }: SchoolSettingsFormProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,7 @@ export function SchoolSettingsForm({
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (readOnly) return;
     setLoading(true);
     setMessage(null);
     setError(null);
@@ -59,20 +62,28 @@ export function SchoolSettingsForm({
           Details shown on letters and staff screens for Excellence Kids.
         </p>
         <div className="mt-5 grid gap-4">
-          <Input label="School name" name="name" defaultValue={school.name} required />
+          <Input
+            label="School name"
+            name="name"
+            defaultValue={school.name}
+            required
+            disabled={readOnly}
+          />
           <Textarea
             label="Address"
             name="address"
             defaultValue={school.address ?? ""}
             placeholder="Street address"
+            disabled={readOnly}
           />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="City" name="city" defaultValue={school.city ?? ""} />
+            <Input label="City" name="city" defaultValue={school.city ?? ""} disabled={readOnly} />
             <Input
               label="Region"
               name="region"
               defaultValue={school.region ?? ""}
               placeholder="e.g. Greater Accra"
+              disabled={readOnly}
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -81,12 +92,14 @@ export function SchoolSettingsForm({
               name="contactEmail"
               type="email"
               defaultValue={school.contactEmail ?? ""}
+              disabled={readOnly}
             />
             <Input
               label="Contact phone"
               name="contactPhone"
               defaultValue={school.contactPhone ?? ""}
               placeholder="+233…"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -102,30 +115,24 @@ export function SchoolSettingsForm({
             name="admissionNumberPrefix"
             defaultValue={settings.admissionNumberPrefix}
             required
+            disabled={readOnly}
           />
           <Input
             label="Application number prefix"
             name="applicationNumberPrefix"
             defaultValue={settings.applicationNumberPrefix}
             required
+            disabled={readOnly}
           />
         </div>
         <div className="mt-5 space-y-3">
-          {/* <label className="flex min-h-11 items-center gap-3 text-[15px] text-[var(--gray-800)]">
-            <input
-              type="checkbox"
-              name="enableOnlineApplication"
-              defaultChecked={settings.enableOnlineApplication}
-              className="size-4 rounded border-[var(--gray-300)] text-[var(--brand-600)]"
-            />
-            Enable online applications
-          </label> */}
           <label className="flex min-h-11 items-center gap-3 text-[15px] text-[var(--gray-800)]">
             <input
               type="checkbox"
               name="enableEmailNotifications"
               defaultChecked={settings.enableEmailNotifications}
-              className="size-4 rounded border-[var(--gray-300)] text-[var(--brand-600)]"
+              disabled={readOnly}
+              className="size-4 rounded border-[var(--gray-300)] text-[var(--brand-600)] disabled:opacity-60"
             />
             Enable email notifications
           </label>
@@ -134,7 +141,8 @@ export function SchoolSettingsForm({
               type="checkbox"
               name="enableSmsNotifications"
               defaultChecked={settings.enableSmsNotifications}
-              className="size-4 rounded border-[var(--gray-300)] text-[var(--brand-600)]"
+              disabled={readOnly}
+              className="size-4 rounded border-[var(--gray-300)] text-[var(--brand-600)] disabled:opacity-60"
             />
             Enable SMS notifications
           </label>
@@ -170,14 +178,16 @@ export function SchoolSettingsForm({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-[var(--gray-200)] pt-4">
-        <Button type="submit" loading={loading}>
-          Save school settings
-        </Button>
-        <p className="text-[13px] text-[var(--gray-500)]">
-          Saves profile, numbering, and notification preferences.
-        </p>
-      </div>
+      {!readOnly ? (
+        <div className="flex flex-wrap items-center gap-3 border-t border-[var(--gray-200)] pt-4">
+          <Button type="submit" loading={loading}>
+            Save school settings
+          </Button>
+          <p className="text-[13px] text-[var(--gray-500)]">
+            Saves profile, numbering, and notification preferences.
+          </p>
+        </div>
+      ) : null}
     </form>
   );
 }

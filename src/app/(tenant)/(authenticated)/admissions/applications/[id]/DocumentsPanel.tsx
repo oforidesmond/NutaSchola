@@ -18,9 +18,11 @@ export type DocumentRow = {
 export function DocumentsPanel({
   applicationId,
   documents,
+  readOnly = false,
 }: {
   applicationId: string;
   documents: DocumentRow[];
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -96,41 +98,43 @@ export function DocumentsPanel({
         </p>
       ) : null}
 
-      <form
-        ref={formRef}
-        onSubmit={onSubmit}
-        className="mt-5 flex flex-col gap-4 border-t border-[var(--gray-100)] pt-5"
-      >
-        <input type="hidden" name="applicationId" value={applicationId} />
-        <label className="flex flex-col gap-2">
-          <span className="text-[15px] font-medium text-[var(--gray-800)]">Document type</span>
-          <select
-            name="documentType"
-            required
-            defaultValue={APPLICATION_DOCUMENT_TYPES[0].value}
-            className="min-h-11 rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] px-3 text-base"
-          >
-            {APPLICATION_DOCUMENT_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-2">
-          <span className="text-[15px] font-medium text-[var(--gray-800)]">File</span>
-          <input
-            type="file"
-            name="file"
-            required
-            accept="image/*,application/pdf"
-            className="min-h-11 rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] px-3 py-2 text-base"
-          />
-        </label>
-        <Button type="submit" loading={loading} className="self-start">
-          Upload document
-        </Button>
-      </form>
+      {!readOnly ? (
+        <form
+          ref={formRef}
+          onSubmit={onSubmit}
+          className="mt-5 flex flex-col gap-4 border-t border-[var(--gray-100)] pt-5"
+        >
+          <input type="hidden" name="applicationId" value={applicationId} />
+          <label className="flex flex-col gap-2">
+            <span className="text-[15px] font-medium text-[var(--gray-800)]">Document type</span>
+            <select
+              name="documentType"
+              required
+              defaultValue={APPLICATION_DOCUMENT_TYPES[0].value}
+              className="min-h-11 rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] px-3 text-base"
+            >
+              {APPLICATION_DOCUMENT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2">
+            <span className="text-[15px] font-medium text-[var(--gray-800)]">File</span>
+            <input
+              type="file"
+              name="file"
+              required
+              accept="image/*,application/pdf"
+              className="min-h-11 rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] px-3 py-2 text-base"
+            />
+          </label>
+          <Button type="submit" loading={loading} className="self-start">
+            Upload document
+          </Button>
+        </form>
+      ) : null}
     </section>
   );
 }

@@ -1,16 +1,17 @@
 import Link from "next/link";
 import { PageHeader, Button, StatusBadge } from "@/components/ui/primitives";
 import { Card } from "@/components/ui/Card";
-import { auth } from "@/lib/auth";
-import { requireTenant } from "@/lib/tenancy";
+import { requirePageAccess } from "@/lib/auth/session";
+import { ACTIONS, can } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
 import { formatDateAccra } from "@/lib/format/currency";
 import { AcademicForms } from "./AcademicForms";
 import { ExportMenu } from "@/components/reports/ExportMenu";
+import { ReadOnlyBanner } from "@/components/ui/ReadOnlyBanner";
 
 export default async function AcademicSettingsPage() {
-  const session = await auth();
-  const tenant = await requireTenant(session!.user.schoolId);
+  const { user, tenant } = await requirePageAccess(ACTIONS.ACADEMIC_READ);
+  const canManage = can(user.role, ACTIONS.ACADEMIC_MANAGE);
 
   const years = await prisma.academicYear.findMany({
     where: { schoolId: tenant.schoolId },
@@ -36,6 +37,10 @@ export default async function AcademicSettingsPage() {
           </div>
         }
       />
+
+      {!canManage ? (
+        <ReadOnlyBanner message="Only school admins can change academic years and terms. You can view the calendar below." />
+      ) : null}
 
       <div className="mb-8 flex flex-col gap-4">
         {years.map((year) => (
@@ -76,7 +81,8 @@ export default async function AcademicSettingsPage() {
               ))}
               {year.terms.length === 0 ? (
                 <li className="py-4 text-[15px] text-[var(--gray-500)]">
-                  No terms in this year yet. Add one below.
+                  No terms in this year yet.
+                  {canManage ? " Add one below." : null}
                 </li>
               ) : null}
             </ul>
@@ -88,13 +94,16 @@ export default async function AcademicSettingsPage() {
               No academic years yet
             </p>
             <p className="mt-1 text-[15px] text-[var(--gray-600)]">
-              Create a year below to start organizing terms for admissions and enrollment.
+              {canManage
+                ? "Create a year below to start organizing terms for admissions and enrollment."
+                : "Ask a school admin to set up academic years and terms."}
             </p>
           </Card>
         ) : null}
       </div>
 
       <AcademicForms
+        readOnly={!canManage}
         years={years.map((y) => ({
           id: y.id,
           name: y.name,

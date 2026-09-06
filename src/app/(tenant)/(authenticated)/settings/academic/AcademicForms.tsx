@@ -17,7 +17,13 @@ type YearOption = {
   terms: { id: string; name: string; isCurrent: boolean }[];
 };
 
-export function AcademicForms({ years }: { years: YearOption[] }) {
+export function AcademicForms({
+  years,
+  readOnly = false,
+}: {
+  years: YearOption[];
+  readOnly?: boolean;
+}) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -25,6 +31,10 @@ export function AcademicForms({ years }: { years: YearOption[] }) {
   const allTerms = years.flatMap((year) =>
     year.terms.map((term) => ({ ...term, yearName: year.name })),
   );
+
+  if (readOnly) {
+    return null;
+  }
 
   async function onCreateYear(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

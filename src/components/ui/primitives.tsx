@@ -80,7 +80,7 @@ export function Input({ label, error, hint, id, className = "", ...props }: Inpu
       <span className="text-[15px] font-medium text-[var(--gray-800)]">{label}</span>
       <input
         id={inputId}
-        className={`min-h-11 rounded-[var(--radius-sm)] border bg-[var(--white)] px-3 text-base text-[var(--gray-900)] shadow-[var(--shadow-sm)] placeholder:text-[var(--gray-400)] focus:border-[var(--brand-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-100)] ${
+        className={`min-h-11 rounded-[var(--radius-sm)] border bg-[var(--white)] px-3 text-base text-[var(--gray-900)] shadow-[var(--shadow-sm)] placeholder:text-[var(--gray-400)] focus:border-[var(--brand-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-100)] disabled:cursor-not-allowed disabled:bg-[var(--gray-50)] disabled:text-[var(--gray-600)] disabled:opacity-80 ${
           error ? "border-[var(--error-600)]" : "border-[var(--gray-200)]"
         } ${className}`}
         {...props}
@@ -113,7 +113,7 @@ export function Textarea({
       <span className="text-[15px] font-medium text-[var(--gray-800)]">{label}</span>
       <textarea
         id={inputId}
-        className={`min-h-24 rounded-[var(--radius-sm)] border bg-[var(--white)] px-3 py-2 text-base text-[var(--gray-900)] shadow-[var(--shadow-sm)] placeholder:text-[var(--gray-400)] focus:border-[var(--brand-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-100)] ${
+        className={`min-h-24 rounded-[var(--radius-sm)] border bg-[var(--white)] px-3 py-2 text-base text-[var(--gray-900)] shadow-[var(--shadow-sm)] placeholder:text-[var(--gray-400)] focus:border-[var(--brand-600)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-100)] disabled:cursor-not-allowed disabled:bg-[var(--gray-50)] disabled:text-[var(--gray-600)] disabled:opacity-80 ${
           error ? "border-[var(--error-600)]" : "border-[var(--gray-200)]"
         } ${className}`}
         {...props}

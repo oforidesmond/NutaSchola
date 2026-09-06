@@ -8,8 +8,10 @@ import {
   Layers,
   BookOpen,
   Wallet,
-  UserPlus,
+  Users,
 } from "lucide-react";
+import type { UserRole } from "@prisma/client";
+import { ACTIONS, can, type Action } from "@/lib/permissions";
 
 export type NavItem = {
   href: string;
@@ -17,6 +19,8 @@ export type NavItem = {
   icon: LucideIcon;
   /** Match exactly, or treat as prefix for nested routes */
   match?: "exact" | "prefix";
+  /** Required permission to show this item in the sidebar */
+  action?: Action;
 };
 
 export type NavGroup = {
@@ -46,12 +50,14 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Overview",
         icon: ClipboardList,
         match: "exact",
+        action: ACTIONS.ADMISSIONS_READ,
       },
       {
         href: "/admissions/applications",
         label: "Applications",
         icon: FileText,
         match: "prefix",
+        action: ACTIONS.ADMISSIONS_READ,
       },
     ],
   },
@@ -59,36 +65,64 @@ export const NAV_GROUPS: NavGroup[] = [
     id: "settings",
     label: "Settings",
     items: [
-      { href: "/settings/school", label: "School", icon: School, match: "exact" },
+      {
+        href: "/settings/school",
+        label: "School",
+        icon: School,
+        match: "exact",
+        action: ACTIONS.SCHOOL_SETTINGS_READ,
+      },
       {
         href: "/settings/academic",
         label: "Academic years",
         icon: CalendarRange,
         match: "exact",
+        action: ACTIONS.ACADEMIC_READ,
       },
       {
         href: "/settings/classes",
         label: "Classes & sections",
         icon: Layers,
         match: "exact",
+        action: ACTIONS.ACADEMIC_READ,
       },
       {
         href: "/settings/subjects",
         label: "Subjects",
         icon: BookOpen,
         match: "exact",
+        action: ACTIONS.ACADEMIC_READ,
       },
-      { href: "/settings/fees", label: "Fees", icon: Wallet, match: "exact" },
+      {
+        href: "/settings/fees",
+        label: "Fees",
+        icon: Wallet,
+        match: "exact",
+        action: ACTIONS.FEES_READ,
+      },
     ],
   },
   {
     id: "staff",
     label: "Staff",
     items: [
-      { href: "/staff/invite", label: "Invite", icon: UserPlus, match: "exact" },
+      {
+        href: "/staff",
+        label: "Staff",
+        icon: Users,
+        match: "prefix",
+        action: ACTIONS.STAFF_INVITE,
+      },
     ],
   },
 ];
+
+export function getNavGroupsForRole(role: UserRole): NavGroup[] {
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.action || can(role, item.action)),
+  })).filter((group) => group.items.length > 0);
+}
 
 export function isNavItemActive(pathname: string, item: NavItem): boolean {
   if (item.match === "exact") {

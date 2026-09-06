@@ -4,8 +4,8 @@ import { Plus } from "lucide-react";
 import { PageHeader, StatusBadge, Button } from "@/components/ui/primitives";
 import { Avatar } from "@/components/ui/Avatar";
 import { FeeProgress } from "@/components/ui/FeeProgress";
-import { requireAction } from "@/lib/auth/session";
-import { ACTIONS } from "@/lib/permissions";
+import { requirePageAccess } from "@/lib/auth/session";
+import { ACTIONS, can } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
 import {
   ALL_FILTER_STAGES,
@@ -34,7 +34,8 @@ export default async function AdmissionApplicationsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { tenant } = await requireAction(ACTIONS.ADMISSIONS_READ);
+  const { user, tenant } = await requirePageAccess(ACTIONS.ADMISSIONS_READ);
+  const canCreate = can(user.role, ACTIONS.ADMISSIONS_CREATE);
   const sp = await searchParams;
 
   const name = sp.name?.trim() ?? "";
@@ -130,13 +131,15 @@ export default async function AdmissionApplicationsPage({
                 { label: "Export PDF", href: buildExportHref("pdf") },
               ]}
             />
-            <Link
-              href="/admissions/applications/new"
-              className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--brand-600)] px-4 text-[15px] font-semibold text-white transition hover:bg-[var(--brand-700)]"
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-              New application
-            </Link>
+            {canCreate ? (
+              <Link
+                href="/admissions/applications/new"
+                className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--brand-600)] px-4 text-[15px] font-semibold text-white transition hover:bg-[var(--brand-700)]"
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                New application
+              </Link>
+            ) : null}
           </div>
         }
       />

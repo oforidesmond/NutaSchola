@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/ui/primitives";
-import { requireAction } from "@/lib/auth/session";
+import { requirePageAccess } from "@/lib/auth/session";
 import { ACTIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
 import { NewApplicationForm } from "./NewApplicationForm";
 
 export default async function NewApplicationPage() {
-  const { tenant } = await requireAction(ACTIONS.ADMISSIONS_CREATE);
+  const { tenant } = await requirePageAccess(ACTIONS.ADMISSIONS_CREATE);
 
   const [classLevels, academicYears] = await Promise.all([
     prisma.classLevel.findMany({

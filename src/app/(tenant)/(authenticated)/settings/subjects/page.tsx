@@ -1,13 +1,14 @@
 import { PageHeader } from "@/components/ui/primitives";
-import { auth } from "@/lib/auth";
-import { requireTenant } from "@/lib/tenancy";
+import { requirePageAccess } from "@/lib/auth/session";
+import { ACTIONS, can } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
 import { SubjectsManager } from "./SubjectsManager";
 import { ExportMenu } from "@/components/reports/ExportMenu";
+import { ReadOnlyBanner } from "@/components/ui/ReadOnlyBanner";
 
 export default async function SubjectsSettingsPage() {
-  const session = await auth();
-  const tenant = await requireTenant(session!.user.schoolId);
+  const { user, tenant } = await requirePageAccess(ACTIONS.ACADEMIC_READ);
+  const canManage = can(user.role, ACTIONS.ACADEMIC_MANAGE);
 
   const subjects = await prisma.subject.findMany({
     where: { schoolId: tenant.schoolId },
@@ -25,7 +26,11 @@ export default async function SubjectsSettingsPage() {
           />
         }
       />
+      {!canManage ? (
+        <ReadOnlyBanner message="Only school admins can change subjects. You can view the list below." />
+      ) : null}
       <SubjectsManager
+        readOnly={!canManage}
         subjects={subjects.map((s) => ({
           id: s.id,
           name: s.name,

@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { PageHeader, StatusBadge } from "@/components/ui/primitives";
 import { FeeProgress } from "@/components/ui/FeeProgress";
-import { requireAction } from "@/lib/auth/session";
-import { ACTIONS } from "@/lib/permissions";
+import { requirePageAccess } from "@/lib/auth/session";
+import { ACTIONS, can } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
 import {
   ALL_FILTER_STAGES,
@@ -15,7 +15,8 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { ExportMenu } from "@/components/reports/ExportMenu";
 
 export default async function AdmissionsDashboardPage() {
-  const { tenant } = await requireAction(ACTIONS.ADMISSIONS_READ);
+  const { user, tenant } = await requirePageAccess(ACTIONS.ADMISSIONS_READ);
+  const canCreate = can(user.role, ACTIONS.ADMISSIONS_CREATE);
 
   const [stageGroups, classGroups, totalApplications, enrolledCount, feeInvoices] =
     await Promise.all([
@@ -98,13 +99,15 @@ export default async function AdmissionsDashboardPage() {
                 },
               ]}
             />
-            <Link
-              href="/admissions/applications/new"
-              className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--brand-600)] px-4 text-[15px] font-semibold text-white transition hover:bg-[var(--brand-700)]"
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-              New application
-            </Link>
+            {canCreate ? (
+              <Link
+                href="/admissions/applications/new"
+                className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--brand-600)] px-4 text-[15px] font-semibold text-white transition hover:bg-[var(--brand-700)]"
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                New application
+              </Link>
+            ) : null}
           </div>
         }
       />

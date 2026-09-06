@@ -23,11 +23,13 @@ const RELATIONSHIP_OPTIONS = Object.values(RelationshipType);
 export function GuardiansPanel({
   applicationId,
   guardians,
+  readOnly = false,
 }: {
   applicationId: string;
   guardians: GuardianRow[];
+  readOnly?: boolean;
 }) {
-  const [showForm, setShowForm] = useState(guardians.length === 0);
+  const [showForm, setShowForm] = useState(!readOnly && guardians.length === 0);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
@@ -63,9 +65,11 @@ export function GuardiansPanel({
     <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Guardians</h2>
-        <Button type="button" variant="secondary" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Cancel" : "Add guardian"}
-        </Button>
+        {!readOnly ? (
+          <Button type="button" variant="secondary" onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Cancel" : "Add guardian"}
+          </Button>
+        ) : null}
       </div>
 
       {guardians.length === 0 ? (
@@ -101,7 +105,7 @@ export function GuardiansPanel({
         </p>
       ) : null}
 
-      {showForm ? (
+      {showForm && !readOnly ? (
         <form onSubmit={onSubmit} className="mt-5 flex flex-col gap-4 border-t border-[var(--gray-100)] pt-5">
           <input type="hidden" name="applicationId" value={applicationId} />
           <p className="text-[13px] text-[var(--gray-600)]">

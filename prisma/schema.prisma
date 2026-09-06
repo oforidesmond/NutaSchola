@@ -331,12 +331,13 @@ model User {
   firstName    String
   lastName     String
   avatarUrl    String?
-  role         UserRole
-  status       UserStatus @default(INVITED)
-  lastLoginAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  deletedAt    DateTime?
+  role                UserRole
+  status              UserStatus @default(INVITED)
+  mustChangePassword  Boolean    @default(false)
+  lastLoginAt         DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  deletedAt           DateTime?
 
   staffProfile         StaffProfile?
   guardianProfile      Guardian?

@@ -21,7 +21,13 @@ const LEVEL_OPTIONS = Object.values(SchoolLevel).map((opt) => ({
   label: opt,
 }));
 
-export function ClassesManager({ levels }: { levels: LevelRow[] }) {
+export function ClassesManager({
+  levels,
+  readOnly = false,
+}: {
+  levels: LevelRow[];
+  readOnly?: boolean;
+}) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -77,21 +83,27 @@ export function ClassesManager({ levels }: { levels: LevelRow[] }) {
               <th className="px-4 py-3 font-semibold">Sections</th>
               <th className="px-4 py-3 font-semibold">Capacity</th>
               <th className="px-4 py-3 font-semibold">Order</th>
-              <th className="px-4 py-3 font-semibold">
-                <span className="sr-only">Actions</span>
-              </th>
+              {!readOnly ? (
+                <th className="px-4 py-3 font-semibold">
+                  <span className="sr-only">Actions</span>
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
             {levels.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[15px] text-[var(--gray-500)]">
-                  No class levels yet. Add one below.
+                <td
+                  colSpan={readOnly ? 5 : 6}
+                  className="px-4 py-8 text-center text-[15px] text-[var(--gray-500)]"
+                >
+                  No class levels yet.
+                  {readOnly ? null : " Add one below."}
                 </td>
               </tr>
             ) : (
               levels.map((level) => {
-                const isEditing = editingId === level.id;
+                const isEditing = !readOnly && editingId === level.id;
                 const sectionsSummary =
                   level.sections.map((s) => s.name).join(", ") || "—";
 
@@ -182,16 +194,18 @@ export function ClassesManager({ levels }: { levels: LevelRow[] }) {
                         <td className="px-4 py-3 font-variant-numeric tabular-nums text-[var(--gray-600)]">
                           {level.order}
                         </td>
-                        <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
-                            aria-label={`Edit ${level.name}`}
-                            onClick={() => setEditingId(level.id)}
-                          >
-                            <Pencil className="h-4 w-4" aria-hidden />
-                          </button>
-                        </td>
+                        {!readOnly ? (
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
+                              aria-label={`Edit ${level.name}`}
+                              onClick={() => setEditingId(level.id)}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
+                            </button>
+                          </td>
+                        ) : null}
                       </>
                     )}
                   </tr>
@@ -202,52 +216,54 @@ export function ClassesManager({ levels }: { levels: LevelRow[] }) {
         </table>
       </div>
 
-      <div className="grid max-w-4xl gap-6 lg:grid-cols-2">
-        <Card>
-          <form onSubmit={onCreateLevel} className="flex flex-col gap-4">
-            <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Add class level</h2>
-            <Input label="Name" name="name" placeholder="Primary 7" required />
-            <Select
-              label="Level type"
-              name="levelType"
-              required
-              defaultValue={SchoolLevel.PRIMARY}
-              options={LEVEL_OPTIONS}
-            />
-            <Input
-              label="Sort order"
-              name="order"
-              type="number"
-              defaultValue={levels.length + 1}
-              required
-            />
-            <Input label="Capacity (optional)" name="capacity" type="number" />
-            <Button type="submit" className="self-start">
-              Add class
-            </Button>
-          </form>
-        </Card>
+      {!readOnly ? (
+        <div className="grid max-w-4xl gap-6 lg:grid-cols-2">
+          <Card>
+            <form onSubmit={onCreateLevel} className="flex flex-col gap-4">
+              <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Add class level</h2>
+              <Input label="Name" name="name" placeholder="Primary 7" required />
+              <Select
+                label="Level type"
+                name="levelType"
+                required
+                defaultValue={SchoolLevel.PRIMARY}
+                options={LEVEL_OPTIONS}
+              />
+              <Input
+                label="Sort order"
+                name="order"
+                type="number"
+                defaultValue={levels.length + 1}
+                required
+              />
+              <Input label="Capacity (optional)" name="capacity" type="number" />
+              <Button type="submit" className="self-start">
+                Add class
+              </Button>
+            </form>
+          </Card>
 
-        <Card>
-          <form onSubmit={onCreateSection} className="flex flex-col gap-4">
-            <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Add section</h2>
-            <Select
-              label="Class level"
-              name="classLevelId"
-              required
-              defaultValue=""
-              options={[
-                { value: "", label: "Select class" },
-                ...levels.map((l) => ({ value: l.id, label: l.name })),
-              ]}
-            />
-            <Input label="Section name" name="name" placeholder="B" required />
-            <Button type="submit" className="self-start">
-              Add section
-            </Button>
-          </form>
-        </Card>
-      </div>
+          <Card>
+            <form onSubmit={onCreateSection} className="flex flex-col gap-4">
+              <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Add section</h2>
+              <Select
+                label="Class level"
+                name="classLevelId"
+                required
+                defaultValue=""
+                options={[
+                  { value: "", label: "Select class" },
+                  ...levels.map((l) => ({ value: l.id, label: l.name })),
+                ]}
+              />
+              <Input label="Section name" name="name" placeholder="B" required />
+              <Button type="submit" className="self-start">
+                Add section
+              </Button>
+            </form>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }

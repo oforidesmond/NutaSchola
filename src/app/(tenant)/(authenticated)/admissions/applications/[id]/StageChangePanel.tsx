@@ -19,11 +19,13 @@ export function StageChangePanel({
   currentStage,
   alreadyConverted,
   emphasized = false,
+  readOnly = false,
 }: {
   applicationId: string;
   currentStage: AdmissionStage;
   alreadyConverted: boolean;
   emphasized?: boolean;
+  readOnly?: boolean;
 }) {
   const [toStage, setToStage] = useState<AdmissionStage>(currentStage);
   const [note, setNote] = useState("");
@@ -70,6 +72,14 @@ export function StageChangePanel({
       {alreadyConverted ? (
         <p className="mt-3 text-[15px] text-[var(--gray-600)]">
           This applicant has been converted to a student, so the stage is locked at Enrolled.
+        </p>
+      ) : readOnly ? (
+        <p className="mt-3 text-[15px] text-[var(--gray-600)]">
+          Current stage:{" "}
+          <span className="font-medium text-[var(--gray-900)]">
+            {admissionStageLabel(currentStage)}
+          </span>
+          . You can view this application but cannot change stages.
         </p>
       ) : (
         <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-4">

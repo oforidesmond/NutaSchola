@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { PageHeader, Button } from "@/components/ui/primitives";
 import { Card } from "@/components/ui/Card";
-import { requireAction } from "@/lib/auth/session";
-import { ACTIONS } from "@/lib/permissions";
+import { requirePageAccess } from "@/lib/auth/session";
+import { ACTIONS, can } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
 import { formatGhs } from "@/lib/format/currency";
 import { AdmissionFeeForm } from "./AdmissionFeeForm";
+import { ReadOnlyBanner } from "@/components/ui/ReadOnlyBanner";
 
 export default async function FeesSettingsPage() {
-  const { tenant } = await requireAction(ACTIONS.SCHOOL_SETTINGS_READ);
+  const { user, tenant } = await requirePageAccess(ACTIONS.FEES_READ);
+  const canManage = can(user.role, ACTIONS.FEES_MANAGE);
 
   const feeStructure = await prisma.feeStructure.findFirst({
     where: { schoolId: tenant.schoolId, isAdmissionFee: true },
@@ -30,6 +32,10 @@ export default async function FeesSettingsPage() {
           </Link>
         }
       />
+
+      {!canManage ? (
+        <ReadOnlyBanner message="Only school admins and accountants can change fee amounts. You can view the current admission fee below." />
+      ) : null}
 
       {!feeStructure || !primaryItem ? (
         <Card variant="flat" className="mt-4 max-w-3xl">
@@ -61,6 +67,7 @@ export default async function FeesSettingsPage() {
             feeItemId={primaryItem.id}
             itemName={primaryItem.name}
             amount={primaryItem.amount.toFixed(2)}
+            readOnly={!canManage}
           />
         </Card>
       )}

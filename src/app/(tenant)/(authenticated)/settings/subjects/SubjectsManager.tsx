@@ -9,7 +9,13 @@ import { createSubject, deleteSubject, updateSubject } from "./actions";
 
 type SubjectRow = { id: string; name: string; code: string | null };
 
-export function SubjectsManager({ subjects }: { subjects: SubjectRow[] }) {
+export function SubjectsManager({
+  subjects,
+  readOnly = false,
+}: {
+  subjects: SubjectRow[];
+  readOnly?: boolean;
+}) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -50,21 +56,27 @@ export function SubjectsManager({ subjects }: { subjects: SubjectRow[] }) {
             <tr>
               <th className="px-4 py-3 font-semibold">Name</th>
               <th className="px-4 py-3 font-semibold">Code</th>
-              <th className="px-4 py-3 font-semibold">
-                <span className="sr-only">Actions</span>
-              </th>
+              {!readOnly ? (
+                <th className="px-4 py-3 font-semibold">
+                  <span className="sr-only">Actions</span>
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
             {subjects.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-[15px] text-[var(--gray-500)]">
-                  No subjects yet. Add one below.
+                <td
+                  colSpan={readOnly ? 2 : 3}
+                  className="px-4 py-8 text-center text-[15px] text-[var(--gray-500)]"
+                >
+                  No subjects yet.
+                  {readOnly ? null : " Add one below."}
                 </td>
               </tr>
             ) : (
               subjects.map((subject) => {
-                const isEditing = editingId === subject.id;
+                const isEditing = !readOnly && editingId === subject.id;
 
                 return (
                   <tr
@@ -133,26 +145,28 @@ export function SubjectsManager({ subjects }: { subjects: SubjectRow[] }) {
                         <td className="px-4 py-3 text-[var(--gray-600)]">
                           {subject.code ?? "—"}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
-                              aria-label={`Edit ${subject.name}`}
-                              onClick={() => setEditingId(subject.id)}
-                            >
-                              <Pencil className="h-4 w-4" aria-hidden />
-                            </button>
-                            <button
-                              type="button"
-                              className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--error-700)] hover:bg-[var(--error-50)]"
-                              aria-label={`Delete ${subject.name}`}
-                              onClick={() => setPendingDelete(subject)}
-                            >
-                              <Trash2 className="h-4 w-4" aria-hidden />
-                            </button>
-                          </div>
-                        </td>
+                        {!readOnly ? (
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
+                                aria-label={`Edit ${subject.name}`}
+                                onClick={() => setEditingId(subject.id)}
+                              >
+                                <Pencil className="h-4 w-4" aria-hidden />
+                              </button>
+                              <button
+                                type="button"
+                                className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--error-700)] hover:bg-[var(--error-50)]"
+                                aria-label={`Delete ${subject.name}`}
+                                onClick={() => setPendingDelete(subject)}
+                              >
+                                <Trash2 className="h-4 w-4" aria-hidden />
+                              </button>
+                            </div>
+                          </td>
+                        ) : null}
                       </>
                     )}
                   </tr>
@@ -163,42 +177,46 @@ export function SubjectsManager({ subjects }: { subjects: SubjectRow[] }) {
         </table>
       </div>
 
-      <Card className="max-w-lg">
-        <form onSubmit={onCreate} className="flex flex-col gap-4">
-          <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Add subject</h2>
-          <Input label="Name" name="name" required />
-          <Input label="Code" name="code" placeholder="ENG" />
-          <Button type="submit" className="self-start">
-            Add subject
-          </Button>
-        </form>
-      </Card>
+      {!readOnly ? (
+        <Card className="max-w-lg">
+          <form onSubmit={onCreate} className="flex flex-col gap-4">
+            <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Add subject</h2>
+            <Input label="Name" name="name" required />
+            <Input label="Code" name="code" placeholder="ENG" />
+            <Button type="submit" className="self-start">
+              Add subject
+            </Button>
+          </form>
+        </Card>
+      ) : null}
 
-      <ConfirmDialog
-        open={Boolean(pendingDelete)}
-        title="Delete this subject?"
-        consequence={
-          pendingDelete
-            ? `“${pendingDelete.name}” will be removed from the subject list. Class–subject links for this subject will also be removed. This cannot be undone from the UI.`
-            : ""
-        }
-        confirmLabel="Delete subject"
-        destructive
-        loading={pending}
-        onCancel={() => setPendingDelete(null)}
-        onConfirm={() => {
-          if (!pendingDelete) return;
-          startTransition(async () => {
-            const result = await deleteSubject(pendingDelete.id);
-            setPendingDelete(null);
-            if (!result.ok) setError(result.error.message);
-            else {
-              if (editingId === pendingDelete.id) setEditingId(null);
-              setMessage("Subject deleted.");
-            }
-          });
-        }}
-      />
+      {!readOnly ? (
+        <ConfirmDialog
+          open={Boolean(pendingDelete)}
+          title="Delete this subject?"
+          consequence={
+            pendingDelete
+              ? `“${pendingDelete.name}” will be removed from the subject list. Class–subject links for this subject will also be removed. This cannot be undone from the UI.`
+              : ""
+          }
+          confirmLabel="Delete subject"
+          destructive
+          loading={pending}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            if (!pendingDelete) return;
+            startTransition(async () => {
+              const result = await deleteSubject(pendingDelete.id);
+              setPendingDelete(null);
+              if (!result.ok) setError(result.error.message);
+              else {
+                if (editingId === pendingDelete.id) setEditingId(null);
+                setMessage("Subject deleted.");
+              }
+            });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

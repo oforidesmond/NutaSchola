@@ -15,6 +15,9 @@ export const ACTIONS = {
   ACADEMIC_READ: "academic.read",
   ACADEMIC_MANAGE: "academic.manage",
 
+  FEES_READ: "fees.read",
+  FEES_MANAGE: "fees.manage",
+
   ADMISSIONS_READ: "admissions.read",
   ADMISSIONS_CREATE: "admissions.create",
   ADMISSIONS_UPDATE: "admissions.update",
@@ -27,6 +30,8 @@ export const ACTIONS = {
 export type Action = (typeof ACTIONS)[keyof typeof ACTIONS];
 
 const ACADEMIC_ACTIONS: Action[] = [ACTIONS.ACADEMIC_READ, ACTIONS.ACADEMIC_MANAGE];
+
+const FEES_ACTIONS: Action[] = [ACTIONS.FEES_READ, ACTIONS.FEES_MANAGE];
 
 const ADMISSIONS_CORE: Action[] = [
   ACTIONS.ADMISSIONS_READ,
@@ -48,6 +53,7 @@ const ALL_TENANT_ACTIONS: Action[] = [
   ACTIONS.STAFF_INVITE,
   ACTIONS.STAFF_MANAGE,
   ...ACADEMIC_ACTIONS,
+  ...FEES_ACTIONS,
   ...ADMISSIONS_FULL,
 ];
 
@@ -63,6 +69,7 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Action[]> = {
   ACCOUNTANT: [
     ACTIONS.SCHOOL_SETTINGS_READ,
     ACTIONS.ACADEMIC_READ,
+    ...FEES_ACTIONS,
     ACTIONS.ADMISSIONS_READ,
     ACTIONS.ADMISSIONS_FEES,
   ],
@@ -85,6 +92,10 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Action[]> = {
 
 export function can(role: UserRole, action: Action): boolean {
   return ROLE_PERMISSIONS[role]?.includes(action) ?? false;
+}
+
+export function canAny(role: UserRole, actions: readonly Action[]): boolean {
+  return actions.some((action) => can(role, action));
 }
 
 export function assertPermission(role: UserRole, action: Action): void {

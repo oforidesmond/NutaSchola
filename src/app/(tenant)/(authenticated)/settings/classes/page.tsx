@@ -1,13 +1,14 @@
 import { PageHeader } from "@/components/ui/primitives";
-import { auth } from "@/lib/auth";
-import { requireTenant } from "@/lib/tenancy";
+import { requirePageAccess } from "@/lib/auth/session";
+import { ACTIONS, can } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
 import { ClassesManager } from "./ClassesManager";
 import { ExportMenu } from "@/components/reports/ExportMenu";
+import { ReadOnlyBanner } from "@/components/ui/ReadOnlyBanner";
 
 export default async function ClassesSettingsPage() {
-  const session = await auth();
-  const tenant = await requireTenant(session!.user.schoolId);
+  const { user, tenant } = await requirePageAccess(ACTIONS.ACADEMIC_READ);
+  const canManage = can(user.role, ACTIONS.ACADEMIC_MANAGE);
 
   const levels = await prisma.classLevel.findMany({
     where: { schoolId: tenant.schoolId },
@@ -26,7 +27,11 @@ export default async function ClassesSettingsPage() {
           />
         }
       />
+      {!canManage ? (
+        <ReadOnlyBanner message="Only school admins can change classes and sections. You can view the structure below." />
+      ) : null}
       <ClassesManager
+        readOnly={!canManage}
         levels={levels.map((l) => ({
           id: l.id,
           name: l.name,

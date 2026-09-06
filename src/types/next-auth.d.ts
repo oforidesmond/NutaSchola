@@ -8,6 +8,7 @@ declare module "next-auth" {
       role: UserRole;
       schoolId: string | null;
       status: UserStatus;
+      mustChangePassword: boolean;
     };
   }
 
@@ -15,6 +16,7 @@ declare module "next-auth" {
     role: UserRole;
     schoolId: string | null;
     status: UserStatus;
+    mustChangePassword?: boolean;
   }
 }
 
@@ -24,6 +26,7 @@ declare module "next-auth/jwt" {
     role: UserRole;
     schoolId: string | null;
     status: UserStatus;
+    mustChangePassword?: boolean;
   }
 }
 

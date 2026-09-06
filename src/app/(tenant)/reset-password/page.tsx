@@ -14,6 +14,7 @@ function ResetPasswordForm() {
   const emailFromLink = searchParams.get("email") ?? "";
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
 
   async function onRequest(event: FormEvent<HTMLFormElement>) {
@@ -38,16 +39,28 @@ function ResetPasswordForm() {
     if (!token) return;
     setLoading(true);
     setError(null);
+    setFieldErrors({});
     setMessage(null);
     const form = new FormData(event.currentTarget);
+    const password = String(form.get("password") ?? "");
+    const confirmPassword = String(form.get("confirmPassword") ?? "");
+
+    if (password !== confirmPassword) {
+      setLoading(false);
+      setFieldErrors({ confirmPassword: ["Passwords do not match"] });
+      return;
+    }
+
     const result = await resetPasswordAction({
       email: String(form.get("email") ?? ""),
       token,
-      password: String(form.get("password") ?? ""),
+      password,
+      confirmPassword,
     });
     setLoading(false);
     if (!result.ok) {
       setError(result.error.message);
+      if (result.error.fieldErrors) setFieldErrors(result.error.fieldErrors);
       return;
     }
     setMessage("Password updated. You can sign in now.");
@@ -65,6 +78,15 @@ function ResetPasswordForm() {
             minLength={8}
             required
             hint="At least 8 characters"
+            error={fieldErrors.password?.[0]}
+          />
+          <Input
+            label="Confirm password"
+            name="confirmPassword"
+            type="password"
+            minLength={8}
+            required
+            error={fieldErrors.confirmPassword?.[0]}
           />
           <Button type="submit" loading={loading}>
             Update password

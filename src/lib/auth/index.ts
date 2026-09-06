@@ -51,8 +51,58 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           schoolId: user.schoolId,
           status: "ACTIVE" as UserStatus,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),
   ],
+  callbacks: {
+    ...authConfig.callbacks,
+    async jwt({ token, user, trigger }) {
+      if (user) {
+        token.id = user.id!;
+        token.email = user.email;
+        token.name = user.name;
+        token.role = user.role;
+        token.schoolId = user.schoolId;
+        token.status = user.status;
+        token.mustChangePassword = Boolean(user.mustChangePassword);
+      }
+
+      // Refresh status / mustChangePassword from DB so deactivate and password
+      // changes take effect on the next request without waiting for JWT expiry.
+      if (token.id && (trigger === "update" || !user)) {
+        try {
+          const dbUser = await prisma.user.findFirst({
+            where: { id: token.id as string },
+            select: {
+              status: true,
+              deletedAt: true,
+              mustChangePassword: true,
+              role: true,
+              schoolId: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          });
+          if (!dbUser || dbUser.deletedAt) {
+            token.status = "INACTIVE";
+            token.mustChangePassword = false;
+          } else {
+            token.status = dbUser.status;
+            token.mustChangePassword = dbUser.mustChangePassword;
+            token.role = dbUser.role;
+            token.schoolId = dbUser.schoolId;
+            token.email = dbUser.email;
+            token.name = `${dbUser.firstName} ${dbUser.lastName}`;
+          }
+        } catch {
+          // Keep existing claims if DB is briefly unavailable.
+        }
+      }
+
+      return token;
+    },
+  },
 });

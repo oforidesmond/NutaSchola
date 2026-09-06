@@ -14,10 +14,20 @@ import { requireTenant } from "@/lib/tenancy";
 import { prisma } from "@/lib/db/prisma";
 import { formatDateAccra, formatGhs } from "@/lib/format/currency";
 import { Decimal } from "@prisma/client/runtime/library";
+import { ACTIONS, can } from "@/lib/permissions";
+import type { UserRole } from "@prisma/client";
+import { AccessDeniedBanner } from "./AccessDeniedBanner";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ denied?: string }>;
+}) {
   const session = await auth();
   const tenant = await requireTenant(session!.user.schoolId);
+  const role = session!.user.role as UserRole;
+  const sp = await searchParams;
+  const showDenied = sp.denied === "1";
 
   const [currentYear, currentTerm, openApplications, feeInvoices] = await Promise.all([
     prisma.academicYear.findFirst({
@@ -27,21 +37,25 @@ export default async function DashboardPage() {
       where: { schoolId: tenant.schoolId, isCurrent: true },
       include: { academicYear: { select: { name: true } } },
     }),
-    prisma.admissionApplication.count({
-      where: {
-        schoolId: tenant.schoolId,
-        deletedAt: null,
-        convertedStudentId: null,
-        stage: { notIn: ["REJECTED", "WITHDRAWN"] },
-      },
-    }),
-    prisma.invoice.findMany({
-      where: {
-        schoolId: tenant.schoolId,
-        admissionApplication: { is: { deletedAt: null } },
-      },
-      select: { totalAmount: true, amountPaid: true },
-    }),
+    can(role, ACTIONS.ADMISSIONS_READ)
+      ? prisma.admissionApplication.count({
+          where: {
+            schoolId: tenant.schoolId,
+            deletedAt: null,
+            convertedStudentId: null,
+            stage: { notIn: ["REJECTED", "WITHDRAWN"] },
+          },
+        })
+      : Promise.resolve(0),
+    can(role, ACTIONS.ADMISSIONS_READ) || can(role, ACTIONS.FEES_READ)
+      ? prisma.invoice.findMany({
+          where: {
+            schoolId: tenant.schoolId,
+            admissionApplication: { is: { deletedAt: null } },
+          },
+          select: { totalAmount: true, amountPaid: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   let feeOutstanding = new Decimal(0);
@@ -51,44 +65,52 @@ export default async function DashboardPage() {
     );
   }
 
-  const shortcuts = [
+  const allShortcuts = [
     {
       href: "/admissions/applications/new",
       label: "New application",
       description: "Start an intake",
       icon: Plus,
+      action: ACTIONS.ADMISSIONS_CREATE,
     },
     {
       href: "/admissions/applications",
       label: "Applications",
       description: "Search all applications",
       icon: FileText,
+      action: ACTIONS.ADMISSIONS_READ,
     },
     {
       href: "/admissions",
       label: "Admissions overview",
       description: "All admissions",
       icon: ClipboardList,
+      action: ACTIONS.ADMISSIONS_READ,
     },
     {
       href: "/settings/academic",
       label: "Academic years",
       description: "Years & terms",
       icon: CalendarRange,
+      action: ACTIONS.ACADEMIC_READ,
     },
     {
       href: "/settings/classes",
       label: "Classes & sections",
       description: "Levels structure",
       icon: Layers,
+      action: ACTIONS.ACADEMIC_READ,
     },
     {
       href: "/settings/fees",
       label: "Admission fee",
       description: "Configure amount",
       icon: Wallet,
+      action: ACTIONS.FEES_READ,
     },
-  ];
+  ] as const;
+
+  const shortcuts = allShortcuts.filter((item) => can(role, item.action));
 
   return (
     <div className="flex flex-col gap-8">
@@ -97,17 +119,23 @@ export default async function DashboardPage() {
         description={`Welcome back. Here’s what needs attention at ${tenant.school.name}.`}
       />
 
+      {showDenied ? <AccessDeniedBanner /> : null}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label="Open applications"
-          value={String(openApplications)}
-          href="/admissions/applications"
-        />
-        <MetricCard
-          label="Outstanding fees"
-          value={formatGhs(feeOutstanding.toFixed(2))}
-          href="/admissions"
-        />
+        {can(role, ACTIONS.ADMISSIONS_READ) ? (
+          <MetricCard
+            label="Open applications"
+            value={String(openApplications)}
+            href="/admissions/applications"
+          />
+        ) : null}
+        {can(role, ACTIONS.ADMISSIONS_READ) || can(role, ACTIONS.FEES_READ) ? (
+          <MetricCard
+            label="Outstanding fees"
+            value={formatGhs(feeOutstanding.toFixed(2))}
+            href={can(role, ACTIONS.ADMISSIONS_READ) ? "/admissions" : "/settings/fees"}
+          />
+        ) : null}
         <MetricCard
           label="Current year"
           value={currentYear?.name ?? "Not set"}
@@ -130,35 +158,37 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <section>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Shortcuts</h2>
-          <StatusBadge label="Active" tone="success" />
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {shortcuts.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="interactive-card surface-raised focus-ring flex items-center gap-3 p-4"
-              >
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--brand-50)] text-[var(--brand-700)]">
-                  <Icon className="h-5 w-5" aria-hidden />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-semibold text-[var(--gray-900)]">
-                    {item.label}
+      {shortcuts.length > 0 ? (
+        <section>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Shortcuts</h2>
+            <StatusBadge label="Active" tone="success" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {shortcuts.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="interactive-card surface-raised focus-ring flex items-center gap-3 p-4"
+                >
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--brand-50)] text-[var(--brand-700)]">
+                    <Icon className="h-5 w-5" aria-hidden />
                   </span>
-                  <span className="block text-[13px] text-[var(--gray-500)]">{item.description}</span>
-                </span>
-                <ArrowRight className="h-4 w-4 shrink-0 text-[var(--gray-400)]" aria-hidden />
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-semibold text-[var(--gray-900)]">
+                      {item.label}
+                    </span>
+                    <span className="block text-[13px] text-[var(--gray-500)]">{item.description}</span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-[var(--gray-400)]" aria-hidden />
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
