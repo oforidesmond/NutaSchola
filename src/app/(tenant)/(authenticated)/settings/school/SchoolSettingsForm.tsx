@@ -147,9 +147,14 @@ export function SchoolSettingsForm({
           {currentAcademicYearName ?? "No current year set"}
         </p>
         <p className="mt-1 text-[15px] text-[var(--gray-600)]">
-          Creating and switching academic years is part of Phase 2. The seeded year is
-          shown here so settings are complete for day-one use.
+          Manage years, terms, classes, and subjects from the Academic settings screens.
         </p>
+        <a
+          href="/settings/academic"
+          className="mt-3 inline-flex min-h-11 items-center text-[15px] font-semibold text-[var(--brand-700)] hover:underline"
+        >
+          Open academic years &amp; terms
+        </a>
       </section>
 
       {error ? (

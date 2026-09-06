@@ -297,22 +297,17 @@ The one place restrained illustration is welcome — e.g., "No applications yet 
 
 ## 🔤 Logo Usage
 
-Brand assets live under `public/brand/` (or the project `brand` folder during setup). Use **only** the variants that exist in the repo — do not invent mark-only or white-reversed SVGs.
+Three vector files are provided (see `/logo` folder), all built as clean scalable SVG rather than a raster export, so they render crisply at any size from a favicon to a banner:
 
-Available files:
-
-- **`excellence-kids-logo.svg`** — full color mark + wordmark + tagline. **Primary asset** for UI: navbar, marketing headers, favicon/app icon source, and anywhere the logo appears on a light or neutral background. Prefer this SVG over raster whenever possible.
-- **`excellence-kids-logo-transparent.png`** — full-color raster with transparency. Use only when a consumer requires PNG (e.g. some email clients, third-party embeds), not as the default in-app mark.
-- **`excellence-kids-logo-white-bg.png`** — full-color raster on a white plate. Use only when a solid white backing is required (e.g. certain print or export contexts). Prefer the SVG on screen.
-
-Not every file needs to ship in every surface — pick the appropriate variant for the context; most product UI should use the SVG alone.
+- **`excellence-kids-logo.svg`** — full color mark + wordmark + tagline. Default usage on light backgrounds (marketing pages, printed admission letters, report headers).
+- **`excellence-kids-mark.svg`** — icon only (no text), square-cropped. Use for favicons, app icons, avatar placeholders for the school itself, and anywhere space is too tight for the wordmark.
+- **`excellence-kids-logo-white.svg`** — fully reversed to white. Use only on `brand-600` or darker backgrounds (e.g. a dark navbar, a PDF cover in brand blue).
 
 ### Rules
-- **Clear space:** maintain empty space around the logo equal to at least the height of one of the four figures (roughly 12% of the logo's total height) on all sides — never crop the arc.
-- **Minimum size:** the full logo (with wordmark) should not render below ~120px wide in content headers, since the wordmark becomes hard to read below that. For tight chrome (favicon, compact nav), scale the same full logo SVG down rather than inventing a separate icon crop.
-- **Backgrounds:** place the full-color logo on light/neutral surfaces. On `brand-600` or darker bars, give it a light plate or keep the bar light enough that the color logo remains legible — do not fabricate a white-reversed SVG.
-- **Never:** recolor the four figures individually to match a seasonal theme, stretch the logo non-uniformly, add a drop shadow or outer glow to it, or place the full-color logo on a busy photo background without a solid backing plate.
-- **Favicon/app icon:** derive sizes from `excellence-kids-logo.svg` (or a PNG export of that same artwork). Do not introduce a separate mark-only asset.
+- **Clear space:** maintain empty space around the mark equal to at least the height of one of the four figures (roughly 12% of the mark's total height) on all sides — never crop the arc.
+- **Minimum size:** the full logo (with wordmark) should not render below ~120px wide, since the wordmark becomes illegible below that; switch to the icon-only mark below that size.
+- **Never:** recolor the four figures individually to match a seasonal theme, stretch the mark non-uniformly, add a drop shadow or outer glow to it, or place the full-color version on a busy photo background (use the white or a solid-brand-color plate behind it instead).
+- **Favicon/app icon generation:** derive all raster sizes (16/32/180/512px PNG, `.ico`) from `excellence-kids-mark.svg`, not from the JPEG original — the SVG stays crisp at every size the JPEG can't reach.
 
 ---
 
@@ -338,7 +333,7 @@ The base system's accessibility section (keyboard nav, screen reader semantics, 
 This build is intentionally single-tenant (Excellence Kids only) to move fast, but the schema underneath is already tenant-aware. When a second school is onboarded, the design system should be ready to swap:
 
 - Brand color (`--brand-600` and its ramp) — driven by a per-`School` `brandColor` value, regenerating the ramp programmatically using the same interpolation approach used to build this palette.
-- Logo — swapped per tenant using that school's provided full-color logo (SVG preferred); do not require mark-only or reversed variants.
+- Logo — swapped per tenant, same three-variant pattern (full, mark, reversed).
 - Wordmark typeface — default to Georgia/serif as a safe fallback if a tenant has no brand serif of their own.
 
 Everything else in this document — spacing, radius, shadow, type scale, the base neutral grays — is intentionally tenant-agnostic and should never change per school. Consistency there is what makes the product feel like *one* well-built system serving many schools, not many different apps stapled together.

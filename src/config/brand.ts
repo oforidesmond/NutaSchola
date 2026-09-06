@@ -13,7 +13,12 @@ export const brand = {
   country: "Ghana",
   defaultSchoolSlug: "excellence-kids",
   logo: {
-    /** Primary UI asset — navbar, headers, favicon source */
+    /** Full mark + wordmark — navbar, marketing, print (≥120px wide) */
     svg: "/brand/excellence-kids-logo.svg",
+    /** Icon-only mark — favicons, app icons, tight UI */
+    mark: "/brand/excellence-kids-mark.svg",
+    /** Raster variants for email / printed letters (not used in product chrome) */
+    pngTransparent: "/brand/excellence-kids-logo-transparent.png",
+    pngWhiteBg: "/brand/excellence-kids-logo-white-bg.png",
   },
 } as const;

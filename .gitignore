@@ -36,6 +36,9 @@ yarn-error.log*
 .env.*.local
 !.env.example
 
+# Neon CLI local context (org/project/branch pin)
+.neon
+
 # vercel
 .vercel
 

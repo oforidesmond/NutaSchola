@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   },
   description: brand.tagline,
   icons: {
-    icon: brand.logo.svg,
-    apple: brand.logo.svg,
+    icon: brand.logo.mark,
+    apple: brand.logo.mark,
   },
 };
 

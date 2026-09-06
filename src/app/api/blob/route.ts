@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { isBlobConfigured, listRecentBlobs, uploadTestBlob } from "@/lib/blob";
 
 /**
- * Minimal Blob proof endpoint for Phase 0.
- * GET  — status + optional list when configured
- * POST — upload a tiny smoke-test object when BLOB_READ_WRITE_TOKEN is set
+ * Minimal Object Storage proof endpoint.
+ * GET  — status + optional list when AWS_* / Neon bucket env is configured
+ * POST — upload a tiny smoke-test object
  */
 export async function GET() {
   if (!isBlobConfigured()) {
@@ -14,7 +14,7 @@ export async function GET() {
       error: {
         code: "BLOB_NOT_CONFIGURED",
         message:
-          "BLOB_READ_WRITE_TOKEN is not set. Scaffold is ready for production credentials.",
+          "Neon Object Storage env vars are not set. Run neon deploy + neon env pull on a us-east-2 project with the nuta-schola bucket.",
       },
     });
   }

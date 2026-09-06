@@ -106,14 +106,9 @@ enum RelationshipType {
 
 enum AdmissionStage {
   INQUIRY
-  APPLICATION_STARTED
-  DOCUMENTS_SUBMITTED
+  APPLICATION_SUBMITTED
   UNDER_REVIEW
-  ENTRANCE_ASSESSMENT_SCHEDULED
-  ENTRANCE_ASSESSMENT_COMPLETED
-  INTERVIEW_SCHEDULED
   ADMITTED
-  OFFER_ACCEPTED
   ENROLLED
   WAITLISTED
   REJECTED
@@ -527,7 +522,7 @@ model AdmissionApplication {
   lastName               String
   dateOfBirth            DateTime
   gender                 Gender
-  photoUrl               String? // Vercel Blob URL
+  photoUrl               String? // Neon Object Storage URL
   homeAddress            String?
   nationality            String? @default("Ghanaian")
   religion               String?
@@ -693,7 +688,7 @@ model Enrollment {
 }
 
 // ============================================================================
-// DOCUMENTS (Vercel Blob)
+// DOCUMENTS (Neon Object Storage)
 // ============================================================================
 
 model Document {
@@ -704,7 +699,7 @@ model Document {
   entityId     String             // id of the AdmissionApplication / Student / etc.
   type         DocumentType
   fileName     String
-  blobUrl      String             // Vercel Blob URL
+  blobUrl      String             // Neon Object Storage URL (or presigned GET)
   mimeType     String?
   sizeBytes    Int?
   uploadedById String?

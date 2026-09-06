@@ -17,10 +17,15 @@ export function TenantShell({ children, userName, schoolName }: TenantShellProps
             <Link href="/dashboard" className="shrink-0">
               <BrandLogo width={140} />
             </Link>
-            <nav className="hidden items-center gap-1 sm:flex">
+            <nav className="hidden items-center gap-1 lg:flex">
               <NavLink href="/dashboard">Dashboard</NavLink>
-              <NavLink href="/settings/school">School settings</NavLink>
-              <NavLink href="/staff/invite">Invite staff</NavLink>
+              <NavLink href="/admissions">Admissions</NavLink>
+              <NavLink href="/settings/academic">Academic</NavLink>
+              <NavLink href="/settings/classes">Classes</NavLink>
+              {/* <NavLink href="/settings/subjects">Subjects</NavLink> */}
+              <NavLink href="/settings/fees">Fees</NavLink>
+              <NavLink href="/settings/school">School</NavLink>
+              <NavLink href="/staff/invite">Invite</NavLink>
             </nav>
           </div>
           <div className="flex items-center gap-3">
@@ -43,6 +48,13 @@ export function TenantShell({ children, userName, schoolName }: TenantShellProps
             </form>
           </div>
         </div>
+        <nav className="flex gap-1 overflow-x-auto border-t border-[var(--border-subtle)] px-4 py-2 lg:hidden">
+          <NavLink href="/admissions">Admissions</NavLink>
+          <NavLink href="/settings/academic">Academic</NavLink>
+          <NavLink href="/settings/classes">Classes</NavLink>
+          <NavLink href="/settings/fees">Fees</NavLink>
+          <NavLink href="/settings/school">School</NavLink>
+        </nav>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
     </div>
@@ -53,7 +65,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className="rounded-[var(--radius-sm)] px-3 py-2 text-[15px] font-medium text-[var(--gray-700)] hover:bg-[var(--gray-100)] hover:text-[var(--gray-900)]"
+      className="shrink-0 rounded-[var(--radius-sm)] px-3 py-2 text-[15px] font-medium text-[var(--gray-700)] hover:bg-[var(--gray-100)] hover:text-[var(--gray-900)]"
     >
       {children}
     </Link>
