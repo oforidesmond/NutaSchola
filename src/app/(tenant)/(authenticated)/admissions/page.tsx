@@ -87,7 +87,7 @@ export default async function AdmissionsDashboardPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Admissions"
-        description="Pipeline health across every stage, class applied for, and conversion into enrolled students."
+        description="Every application, stage, class applied for, and conversion into enrolled students."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ExportMenu
@@ -118,7 +118,7 @@ export default async function AdmissionsDashboardPage() {
       <section className="surface-raised p-6">
         <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Admission fees</h2>
         <p className="mt-1 text-[15px] text-[var(--gray-600)]">
-          School-wide admission fee totals — partial payment is a normal state.
+          Admission fee totals for all applications.
         </p>
         <div className="mt-5 max-w-md">
           <FeeProgress

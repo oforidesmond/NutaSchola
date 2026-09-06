@@ -111,7 +111,7 @@ export function SchoolSettingsForm({
           />
         </div>
         <div className="mt-5 space-y-3">
-          <label className="flex min-h-11 items-center gap-3 text-[15px] text-[var(--gray-800)]">
+          {/* <label className="flex min-h-11 items-center gap-3 text-[15px] text-[var(--gray-800)]">
             <input
               type="checkbox"
               name="enableOnlineApplication"
@@ -119,7 +119,7 @@ export function SchoolSettingsForm({
               className="size-4 rounded border-[var(--gray-300)] text-[var(--brand-600)]"
             />
             Enable online applications
-          </label>
+          </label> */}
           <label className="flex min-h-11 items-center gap-3 text-[15px] text-[var(--gray-800)]">
             <input
               type="checkbox"

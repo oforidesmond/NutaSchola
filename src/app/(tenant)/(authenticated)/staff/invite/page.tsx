@@ -6,7 +6,7 @@ export default function InviteStaffPage() {
     <div>
       <PageHeader
         title="Invite staff"
-        description="Create an invited account and send an accept-invite link. Locally, the link is logged instead of emailed."
+        description="Create an invited account and send an accept-invite link."
       />
       <div className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
         <InviteStaffForm />

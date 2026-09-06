@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { VendorCredit } from "@/components/brand/VendorCredit";
 import { AuthShell } from "@/components/layout/AuthShell";
 import { Button, Input } from "@/components/ui/primitives";
 import { acceptInviteAction } from "./actions";
@@ -85,6 +86,7 @@ export default function AcceptInvitePage() {
     <AuthShell
       title="Accept invite"
       description="Set a password to activate your staff account for Excellence Kids."
+      footer={<VendorCredit className="text-center" />}
     >
       <Suspense fallback={<p className="text-center text-[var(--gray-500)]">Loading…</p>}>
         <AcceptInviteForm />

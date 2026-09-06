@@ -19,7 +19,7 @@ export default async function ClassesSettingsPage() {
     <div>
       <PageHeader
         title="Classes & sections"
-        description="Ghana basic-school levels for this school. Staff can add, rename, and add sections — nothing is hardcoded in the UI."
+        description="All classes and sections for this school."
         action={
           <ExportMenu
             links={[{ label: "Export CSV", href: "/api/reports/settings/classes" }]}

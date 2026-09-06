@@ -135,8 +135,7 @@ export function DangerZone({ applicationId }: { applicationId: string }) {
       </summary>
       <div className="border-t border-[var(--error-50)] px-5 pb-5 pt-3">
         <p className="text-[15px] text-[var(--gray-600)]">
-          Deleting removes this application from lists and search. There is no undo in the product
-          yet.
+          Deleting removes this application from lists and search.
         </p>
         {deleteError ? (
           <p className="mt-3 rounded-[var(--radius-sm)] bg-[var(--error-50)] px-3 py-2 text-[15px] text-[var(--error-700)]">

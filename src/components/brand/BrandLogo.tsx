@@ -1,5 +1,8 @@
 import { brand } from "@/config/brand";
 
+/** Full logo SVG is 1080×763 — keep intrinsic ratio so the mark isn't clipped. */
+const LOGO_ASPECT = 763 / 1080;
+
 type LogoProps = {
   className?: string;
   /** Minimum practical width for wordmark readability in headers */
@@ -19,7 +22,7 @@ export function BrandLogo({
       src={brand.logo.svg}
       alt={alt}
       width={width}
-      height={Math.round(width * 0.45)}
+      height={Math.round(width * LOGO_ASPECT)}
       className={className}
       style={{ height: "auto", width }}
     />

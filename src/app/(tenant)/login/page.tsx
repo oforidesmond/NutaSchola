@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
+import { VendorCredit } from "@/components/brand/VendorCredit";
 import { AuthShell } from "@/components/layout/AuthShell";
 import { Button, Input } from "@/components/ui/primitives";
 import { loginAction } from "./actions";
@@ -78,6 +79,7 @@ export default function LoginPage() {
     <AuthShell
       title="Staff sign in"
       description="Use the account invited by your school administrator."
+      footer={<VendorCredit className="text-center" />}
     >
       <Suspense fallback={<p className="text-center text-[var(--gray-500)]">Loading…</p>}>
         <LoginForm />

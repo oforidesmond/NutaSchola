@@ -61,13 +61,13 @@ export default async function DashboardPage() {
     {
       href: "/admissions/applications",
       label: "Applications",
-      description: "Search the pipeline",
+      description: "Search all applications",
       icon: FileText,
     },
     {
       href: "/admissions",
       label: "Admissions overview",
-      description: "Pipeline health",
+      description: "All admissions",
       icon: ClipboardList,
     },
     {

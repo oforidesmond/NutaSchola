@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { VendorCredit } from "@/components/brand/VendorCredit";
 import { AuthShell } from "@/components/layout/AuthShell";
 import { Button, Input } from "@/components/ui/primitives";
 import { requestPasswordResetAction, resetPasswordAction } from "./actions";
@@ -104,6 +105,7 @@ export default function ResetPasswordPage() {
     <AuthShell
       title="Reset password"
       description="Enter your work email and we’ll send a secure link to choose a new password."
+      footer={<VendorCredit className="text-center" />}
     >
       <Suspense fallback={<p className="text-center text-[var(--gray-500)]">Loading…</p>}>
         <ResetPasswordForm />

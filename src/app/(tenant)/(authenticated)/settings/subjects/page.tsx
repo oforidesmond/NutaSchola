@@ -18,7 +18,7 @@ export default async function SubjectsSettingsPage() {
     <div>
       <PageHeader
         title="Subjects"
-        description="Data entry only for now — subjects are not wired into exams or grading yet (Phase 6)."
+        description="All subjects and their codes."
         action={
           <ExportMenu
             links={[{ label: "Export CSV", href: "/api/reports/settings/subjects" }]}

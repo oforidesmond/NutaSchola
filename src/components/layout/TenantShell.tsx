@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X, LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { VendorCredit } from "@/components/brand/VendorCredit";
 import { brand } from "@/config/brand";
 import { NAV_GROUPS, isNavItemActive } from "./nav";
 
@@ -28,12 +29,15 @@ export function TenantShell({
     <div className="flex min-h-screen bg-[var(--bg-page)] text-[var(--text-primary)]">
       {/* Desktop sidebar */}
       <aside className="glass-heavy sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-[var(--border-subtle)] lg:flex">
-        <div className="flex h-16 items-center border-b border-[var(--border-subtle)] px-4">
-          <Link href="/dashboard" className="focus-ring rounded-[var(--radius-sm)]">
-            <BrandLogo width={132} />
+        <div className="flex items-center justify-center border-b border-[var(--border-subtle)] px-3 py-2">
+          <Link
+            href="/dashboard"
+            className="focus-ring block rounded-[var(--radius-sm)]"
+          >
+            <BrandLogo width={128} />
           </Link>
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4">
           <SidebarNav pathname={pathname} onNavigate={() => setMobileOpen(false)} />
         </nav>
         <div className="border-t border-[var(--border-subtle)] p-3">
@@ -63,18 +67,18 @@ export function TenantShell({
             onClick={() => setMobileOpen(false)}
           />
           <aside className="glass-heavy absolute inset-y-0 left-0 flex w-[min(100%,280px)] flex-col shadow-[var(--shadow-xl)]">
-            <div className="flex h-16 items-center justify-between border-b border-[var(--border-subtle)] px-4">
+            <div className="flex items-start justify-between gap-2 border-b border-[var(--border-subtle)] px-3 py-2">
               <BrandLogo width={120} />
               <button
                 type="button"
-                className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] hover:bg-[var(--gray-100)]"
+                className="focus-ring inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-[var(--radius-sm)] hover:bg-[var(--gray-100)]"
                 onClick={() => setMobileOpen(false)}
                 aria-label="Close menu"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto px-3 py-4">
+            <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4">
               <SidebarNav pathname={pathname} onNavigate={() => setMobileOpen(false)} />
             </nav>
             <div className="border-t border-[var(--border-subtle)] p-3">

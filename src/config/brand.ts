@@ -6,6 +6,7 @@ export const brand = {
   productName: "Excellence Kids",
   codebaseName: "NutaSchola",
   vendorName: "NutaSolutions",
+  vendorUrl: "https://nutasolutions.com",
   tagline: "Be a reader, be a writer, be a problem solver",
   primaryColor: "#0C6C9C",
   currency: "GHS",
