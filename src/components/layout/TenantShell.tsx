@@ -1,73 +1,170 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { Menu, X, LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { signOut } from "@/lib/auth";
+import { brand } from "@/config/brand";
+import { NAV_GROUPS, isNavItemActive } from "./nav";
 
 type TenantShellProps = {
   children: React.ReactNode;
   userName: string;
   schoolName: string;
+  signOutAction: () => Promise<void>;
 };
 
-export function TenantShell({ children, userName, schoolName }: TenantShellProps) {
+export function TenantShell({
+  children,
+  userName,
+  schoolName,
+  signOutAction,
+}: TenantShellProps) {
+  const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text-primary)]">
-      <header className="glass-light sticky top-0 z-40 border-b border-[var(--border-subtle)]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="shrink-0">
-              <BrandLogo width={140} />
-            </Link>
-            <nav className="hidden items-center gap-1 lg:flex">
-              <NavLink href="/dashboard">Dashboard</NavLink>
-              <NavLink href="/admissions">Admissions</NavLink>
-              <NavLink href="/settings/academic">Academic</NavLink>
-              <NavLink href="/settings/classes">Classes</NavLink>
-              {/* <NavLink href="/settings/subjects">Subjects</NavLink> */}
-              <NavLink href="/settings/fees">Fees</NavLink>
-              <NavLink href="/settings/school">School</NavLink>
-              <NavLink href="/staff/invite">Invite</NavLink>
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <p className="text-[13px] font-medium text-[var(--gray-900)]">{userName}</p>
-              <p className="text-[12px] text-[var(--gray-500)]">{schoolName}</p>
-            </div>
-            <form
-              action={async () => {
-                "use server";
-                await signOut({ redirectTo: "/login" });
-              }}
-            >
-              <button
-                type="submit"
-                className="min-h-11 rounded-[var(--radius-sm)] px-3 text-[15px] font-medium text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
+    <div className="flex min-h-screen bg-[var(--bg-page)] text-[var(--text-primary)]">
+      {/* Desktop sidebar */}
+      <aside className="glass-heavy sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-[var(--border-subtle)] lg:flex">
+        <div className="flex h-16 items-center border-b border-[var(--border-subtle)] px-4">
+          <Link href="/dashboard" className="focus-ring rounded-[var(--radius-sm)]">
+            <BrandLogo width={132} />
+          </Link>
         </div>
-        <nav className="flex gap-1 overflow-x-auto border-t border-[var(--border-subtle)] px-4 py-2 lg:hidden">
-          <NavLink href="/admissions">Admissions</NavLink>
-          <NavLink href="/settings/academic">Academic</NavLink>
-          <NavLink href="/settings/classes">Classes</NavLink>
-          <NavLink href="/settings/fees">Fees</NavLink>
-          <NavLink href="/settings/school">School</NavLink>
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          <SidebarNav pathname={pathname} onNavigate={() => setMobileOpen(false)} />
         </nav>
-      </header>
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+        <div className="border-t border-[var(--border-subtle)] p-3">
+          <div className="mb-2 px-2">
+            <p className="truncate text-[13px] font-medium text-[var(--gray-900)]">{userName}</p>
+            <p className="truncate text-[12px] text-[var(--gray-500)]">{schoolName}</p>
+          </div>
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="focus-ring flex min-h-11 w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 text-[15px] font-medium text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
+            >
+              <LogOut className="h-4 w-4" aria-hidden />
+              Sign out
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      {/* Mobile drawer */}
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-[var(--gray-900)]/40"
+            aria-label="Close navigation"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="glass-heavy absolute inset-y-0 left-0 flex w-[min(100%,280px)] flex-col shadow-[var(--shadow-xl)]">
+            <div className="flex h-16 items-center justify-between border-b border-[var(--border-subtle)] px-4">
+              <BrandLogo width={120} />
+              <button
+                type="button"
+                className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] hover:bg-[var(--gray-100)]"
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close menu"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <nav className="flex-1 overflow-y-auto px-3 py-4">
+              <SidebarNav pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+            </nav>
+            <div className="border-t border-[var(--border-subtle)] p-3">
+              <p className="truncate px-2 text-[13px] font-medium text-[var(--gray-900)]">
+                {userName}
+              </p>
+              <p className="mb-2 truncate px-2 text-[12px] text-[var(--gray-500)]">{schoolName}</p>
+              <form action={signOutAction}>
+                <button
+                  type="submit"
+                  className="focus-ring flex min-h-11 w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 text-[15px] font-medium text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden />
+                  Sign out
+                </button>
+              </form>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="glass-light sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-[var(--border-subtle)] px-4 lg:hidden">
+          <button
+            type="button"
+            className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] hover:bg-[var(--gray-100)]"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <span className="text-[15px] font-semibold text-[var(--gray-900)]">
+            {brand.productName}
+          </span>
+        </header>
+        <main className="motion-enter mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function SidebarNav({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string;
+  onNavigate: () => void;
+}) {
   return (
-    <Link
-      href={href}
-      className="shrink-0 rounded-[var(--radius-sm)] px-3 py-2 text-[15px] font-medium text-[var(--gray-700)] hover:bg-[var(--gray-100)] hover:text-[var(--gray-900)]"
-    >
-      {children}
-    </Link>
+    <div className="flex flex-col gap-5">
+      {NAV_GROUPS.map((group) => (
+        <div key={group.id}>
+          {group.label ? (
+            <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--gray-500)]">
+              {group.label}
+            </p>
+          ) : null}
+          <ul className="flex flex-col gap-0.5">
+            {group.items.map((item) => {
+              const active = isNavItemActive(pathname, item);
+              const Icon = item.icon;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onNavigate}
+                    className={`focus-ring relative flex min-h-11 items-center gap-2.5 rounded-[var(--radius-sm)] px-3 text-[15px] font-medium transition-colors ${
+                      active
+                        ? "bg-[var(--brand-50)] text-[var(--brand-700)]"
+                        : "text-[var(--gray-700)] hover:bg-[var(--gray-100)] hover:text-[var(--gray-900)]"
+                    }`}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {active ? (
+                      <span
+                        className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-[var(--brand-600)]"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }

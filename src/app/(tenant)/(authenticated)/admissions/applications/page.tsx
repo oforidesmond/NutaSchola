@@ -1,6 +1,9 @@
 import Link from "next/link";
 import type { AdmissionStage, ApplicationSource, Prisma } from "@prisma/client";
-import { PageHeader, StatusBadge } from "@/components/ui/primitives";
+import { Plus } from "lucide-react";
+import { PageHeader, StatusBadge, Button } from "@/components/ui/primitives";
+import { Avatar } from "@/components/ui/Avatar";
+import { FeeProgress } from "@/components/ui/FeeProgress";
 import { requireAction } from "@/lib/auth/session";
 import { ACTIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
@@ -10,7 +13,6 @@ import {
   admissionStageTone,
 } from "@/lib/admissions/stages";
 import { SOURCE_LABELS } from "@/lib/admissions/labels";
-import { formatFeePaymentSummary } from "@/lib/admissions/fees";
 import { formatDateAccra } from "@/lib/format/currency";
 import { ExportMenu } from "@/components/reports/ExportMenu";
 
@@ -130,18 +132,16 @@ export default async function AdmissionApplicationsPage({
             />
             <Link
               href="/admissions/applications/new"
-              className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--brand-600)] px-4 text-[15px] font-semibold text-white transition hover:bg-[var(--brand-700)]"
+              className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--brand-600)] px-4 text-[15px] font-semibold text-white transition hover:bg-[var(--brand-700)]"
             >
+              <Plus className="h-4 w-4" aria-hidden />
               New application
             </Link>
           </div>
         }
       />
 
-      <form
-        method="get"
-        className="grid gap-4 rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-5 shadow-[var(--shadow-sm)] sm:grid-cols-2 lg:grid-cols-6"
-      >
+      <form method="get" className="surface-raised grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-6">
         <label className="flex flex-col gap-2 lg:col-span-2">
           <span className="text-[15px] font-medium text-[var(--gray-800)]">Name</span>
           <input
@@ -222,12 +222,7 @@ export default async function AdmissionApplicationsPage({
         </label>
 
         <div className="flex items-end gap-2 lg:col-span-6">
-          <button
-            type="submit"
-            className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--brand-600)] px-5 text-[15px] font-semibold text-white transition hover:bg-[var(--brand-700)]"
-          >
-            Search
-          </button>
+          <Button type="submit">Search</Button>
           <Link
             href="/admissions/applications"
             className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-sm)] px-4 text-[15px] font-medium text-[var(--gray-600)] hover:bg-[var(--gray-100)]"
@@ -241,54 +236,62 @@ export default async function AdmissionApplicationsPage({
         <table className="min-w-full text-left text-[15px]">
           <thead className="border-b border-[var(--gray-200)] bg-[var(--gray-50)] text-[13px] uppercase tracking-[0.02em] text-[var(--gray-500)]">
             <tr>
-              <th className="px-4 py-3 font-semibold">Application #</th>
-              <th className="px-4 py-3 font-semibold">Applicant</th>
-              <th className="px-4 py-3 font-semibold">Class applied</th>
-              <th className="px-4 py-3 font-semibold">Stage</th>
-              <th className="px-4 py-3 font-semibold">Fee</th>
-              <th className="px-4 py-3 font-semibold">Source</th>
-              <th className="px-4 py-3 font-semibold">Created</th>
-              <th className="px-4 py-3 font-semibold">Actions</th>
+              <th className="px-4 py-2.5 font-semibold">Application #</th>
+              <th className="px-4 py-2.5 font-semibold">Applicant</th>
+              <th className="px-4 py-2.5 font-semibold">Class</th>
+              <th className="px-4 py-2.5 font-semibold">Stage</th>
+              <th className="px-4 py-2.5 font-semibold">Fee</th>
+              <th className="px-4 py-2.5 font-semibold">Source</th>
+              <th className="px-4 py-2.5 font-semibold">Created</th>
+              <th className="px-4 py-2.5 font-semibold">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {applications.map((app) => (
-              <tr key={app.id} className="border-b border-[var(--gray-100)]">
-                <td className="px-4 py-2 font-variant-numeric tabular-nums text-[var(--gray-700)]">
-                  {app.applicationNumber}
-                </td>
-                <td className="px-4 py-2 font-medium text-[var(--gray-900)]">
-                  {app.firstName} {app.lastName}
-                </td>
-                <td className="px-4 py-2 text-[var(--gray-600)]">{app.classLevelApplied.name}</td>
-                <td className="px-4 py-2">
-                  <StatusBadge
-                    label={admissionStageLabel(app.stage)}
-                    tone={admissionStageTone(app.stage)}
-                  />
-                </td>
-                <td className="max-w-[14rem] px-4 py-2 text-[13px] text-[var(--gray-700)]">
-                  {app.admissionFeeInvoice
-                    ? formatFeePaymentSummary(app.admissionFeeInvoice)
-                    : "No invoice"}
-                </td>
-                <td className="px-4 py-2 text-[var(--gray-600)]">{SOURCE_LABELS[app.source]}</td>
-                <td className="px-4 py-2 font-variant-numeric tabular-nums text-[var(--gray-600)]">
-                  {formatDateAccra(app.createdAt)}
-                </td>
-                <td className="px-4 py-2">
-                  <Link
-                    href={`/admissions/applications/${app.id}`}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] px-3 text-[15px] font-semibold text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
-                  >
-                    View
-                  </Link>
-                </td>
-              </tr>
-            ))}
+            {applications.map((app) => {
+              const fullName = `${app.firstName} ${app.lastName}`;
+              return (
+                <tr key={app.id} className="interactive-row border-b border-[var(--gray-100)]">
+                  <td className="px-4 py-2 font-variant-numeric tabular-nums text-[13px] text-[var(--gray-600)]">
+                    {app.applicationNumber}
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar name={fullName} size="sm" />
+                      <span className="font-medium text-[var(--gray-900)]">{fullName}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-[var(--gray-600)]">{app.classLevelApplied.name}</td>
+                  <td className="px-4 py-2">
+                    <StatusBadge
+                      label={admissionStageLabel(app.stage)}
+                      tone={admissionStageTone(app.stage)}
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    <FeeProgress amounts={app.admissionFeeInvoice} variant="compact" />
+                  </td>
+                  <td className="px-4 py-2 text-[13px] text-[var(--gray-600)]">
+                    {SOURCE_LABELS[app.source]}
+                  </td>
+                  <td className="px-4 py-2 font-variant-numeric tabular-nums text-[13px] text-[var(--gray-600)]">
+                    {formatDateAccra(app.createdAt)}
+                  </td>
+                  <td className="px-4 py-2">
+                    <Link
+                      href={`/admissions/applications/${app.id}`}
+                      className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] px-3 text-[15px] font-semibold text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
+                    >
+                      View
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
             {applications.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-[15px] text-[var(--gray-500)]">
+                <td colSpan={8} className="px-4 py-10 text-center text-[15px] text-[var(--gray-500)]">
                   No applications match these filters.
                 </td>
               </tr>

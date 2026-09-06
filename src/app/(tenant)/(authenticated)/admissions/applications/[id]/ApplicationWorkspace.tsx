@@ -2,16 +2,19 @@
 
 import { FormEvent, useState } from "react";
 import type { AdmissionStage, Gender } from "@prisma/client";
+import { ArrowRight } from "lucide-react";
 import { Button, Input, Textarea } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/Card";
 import { GENDER_LABELS } from "@/lib/admissions/labels";
 import { admissionStageLabel } from "@/lib/admissions/stages";
+import { getAdmissionNextAction } from "@/lib/admissions/next-action";
 import { formatDateAccra } from "@/lib/format/currency";
 import { updateApplicationBio } from "./actions";
 import { GuardiansPanel, type GuardianRow } from "./GuardiansPanel";
 import { DocumentsPanel, type DocumentRow } from "./DocumentsPanel";
 import { StageChangePanel } from "./StageChangePanel";
 import { FeePanel, type InvoiceView } from "./FeePanel";
-import { ConvertAndDangerPanel } from "./ConvertAndDangerPanel";
+import { ConvertPanel, DangerZone } from "./ConvertAndDangerPanel";
 
 type ApplicationBio = {
   id: string;
@@ -62,38 +65,75 @@ export function ApplicationWorkspace({
   convertBlockedReason: string | null;
   alreadyConverted: boolean;
 }) {
-  return (
-    <div className="flex flex-col gap-8">
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <BioSection application={application} />
-        </div>
-        <div>
-          <ConvertAndDangerPanel
-            applicationId={application.id}
-            canConvert={canConvert}
-            convertBlockedReason={convertBlockedReason}
-            alreadyConverted={alreadyConverted}
-            convertedStudent={application.convertedStudent}
-          />
-        </div>
-      </div>
+  const nextAction = getAdmissionNextAction({
+    stage: application.stage,
+    guardianCount: guardians.length,
+    uploadedDocumentTypes: documents.map((d) => d.type),
+    hasInvoice: Boolean(invoice),
+    amountPaid: invoice ? Number(invoice.amountPaid) : 0,
+    canConvert,
+    alreadyConverted,
+    convertBlockedReason,
+  });
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <GuardiansPanel applicationId={application.id} guardians={guardians} />
-        <DocumentsPanel applicationId={application.id} documents={documents} />
-      </div>
+  return (
+    <div className="flex flex-col gap-6">
+      <Card
+        variant={nextAction.focus === "none" ? "flat" : "emphasis"}
+        className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div>
+          <p className="text-[13px] font-semibold uppercase tracking-[0.02em] text-[var(--brand-700)]">
+            What&apos;s next
+          </p>
+          <h2 className="mt-1 text-[20px] font-semibold text-[var(--gray-900)]">{nextAction.title}</h2>
+          <p className="mt-1 max-w-2xl text-[15px] text-[var(--gray-700)]">{nextAction.description}</p>
+        </div>
+        {nextAction.ctaLabel ? (
+          <p className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[var(--brand-700)]">
+            <ArrowRight className="h-4 w-4" aria-hidden />
+            {nextAction.ctaLabel} below
+          </p>
+        ) : null}
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <StageChangePanel
           applicationId={application.id}
           currentStage={application.stage}
           alreadyConverted={alreadyConverted}
+          emphasized={nextAction.focus === "stage"}
         />
-        <FeePanel applicationId={application.id} invoice={invoice} />
+        <FeePanel
+          applicationId={application.id}
+          invoice={invoice}
+          emphasized={nextAction.focus === "fee"}
+        />
+      </div>
+
+      {canConvert || alreadyConverted || nextAction.focus === "convert" ? (
+        <ConvertPanel
+          applicationId={application.id}
+          canConvert={canConvert}
+          convertBlockedReason={convertBlockedReason}
+          alreadyConverted={alreadyConverted}
+          convertedStudent={application.convertedStudent}
+          emphasized={canConvert || nextAction.focus === "convert"}
+        />
+      ) : null}
+
+      <BioSection application={application} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <GuardiansPanel applicationId={application.id} guardians={guardians} />
+        <DocumentsPanel applicationId={application.id} documents={documents} />
       </div>
 
       <StatusHistoryPanel history={statusHistory} />
+
+      {!alreadyConverted ? (
+        <DangerZone applicationId={application.id} />
+      ) : null}
     </div>
   );
 }
@@ -123,7 +163,7 @@ function BioSection({ application }: { application: ApplicationBio }) {
   }
 
   return (
-    <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+    <section className="surface-raised p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-4">
           {application.photoUrl ? (
@@ -134,7 +174,7 @@ function BioSection({ application }: { application: ApplicationBio }) {
               className="h-16 w-16 rounded-full border border-[var(--gray-200)] object-cover"
             />
           ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--gray-100)] text-[20px] font-semibold text-[var(--gray-500)]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--gray-200)] text-[20px] font-semibold text-[var(--gray-600)]">
               {application.firstName[0]}
               {application.lastName[0]}
             </div>
@@ -242,7 +282,7 @@ function Field({ label, value, full }: { label: string; value: string; full?: bo
 
 function StatusHistoryPanel({ history }: { history: StatusHistoryRow[] }) {
   return (
-    <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+    <section className="surface-flat p-6">
       <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Status history</h2>
       {history.length === 0 ? (
         <p className="mt-3 text-[15px] text-[var(--gray-600)]">No stage changes recorded yet.</p>

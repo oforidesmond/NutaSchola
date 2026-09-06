@@ -18,10 +18,12 @@ export function StageChangePanel({
   applicationId,
   currentStage,
   alreadyConverted,
+  emphasized = false,
 }: {
   applicationId: string;
   currentStage: AdmissionStage;
   alreadyConverted: boolean;
+  emphasized?: boolean;
 }) {
   const [toStage, setToStage] = useState<AdmissionStage>(currentStage);
   const [note, setNote] = useState("");
@@ -62,7 +64,7 @@ export function StageChangePanel({
   }
 
   return (
-    <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+    <section className={emphasized ? "surface-emphasis p-6" : "surface-raised p-6"}>
       <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Change stage</h2>
 
       {alreadyConverted ? (
@@ -85,7 +87,7 @@ export function StageChangePanel({
               ))}
             </select>
             <span className="text-[13px] text-[var(--gray-500)]">
-              Enrolled is set automatically by converting the applicant to a student, below.
+              Enrolled is set automatically when you convert the applicant to a student.
             </span>
           </label>
           <Textarea

@@ -33,7 +33,7 @@ export default function MarketingHomePage() {
           </div>
         </section>
 
-        <section className="rounded-[var(--radius-lg)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+        <section className="surface-raised p-6 sm:p-8">
           <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">
             Built for Creche through JHS 3
           </h2>

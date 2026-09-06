@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
-import { BrandLogo } from "@/components/brand/BrandLogo";
+import { AuthShell } from "@/components/layout/AuthShell";
 import { Button, Input } from "@/components/ui/primitives";
 import { loginAction } from "./actions";
 
@@ -62,7 +62,10 @@ function LoginForm() {
       </Button>
       <p className="text-center text-[15px] text-[var(--gray-600)]">
         Forgot password?{" "}
-        <Link href="/reset-password" className="font-medium text-[var(--brand-700)]">
+        <Link
+          href="/reset-password"
+          className="focus-ring rounded-[var(--radius-xs)] font-medium text-[var(--brand-700)] hover:underline"
+        >
           Reset it
         </Link>
       </p>
@@ -72,23 +75,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,var(--brand-50),var(--gray-50))] px-4 py-10">
-      <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--gray-200)] bg-[var(--white)] p-8 shadow-[var(--shadow-md)]">
-        <div className="mb-8 flex flex-col items-center gap-4 text-center">
-          <BrandLogo width={168} />
-          <div>
-            <h1 className="text-[28px] font-semibold tracking-[-0.005em] text-[var(--gray-900)]">
-              Staff sign in
-            </h1>
-            <p className="mt-1 text-[15px] text-[var(--gray-600)]">
-              Use the account invited by your school administrator.
-            </p>
-          </div>
-        </div>
-        <Suspense fallback={<p className="text-center text-[var(--gray-500)]">Loading…</p>}>
-          <LoginForm />
-        </Suspense>
-      </div>
-    </div>
+    <AuthShell
+      title="Staff sign in"
+      description="Use the account invited by your school administrator."
+    >
+      <Suspense fallback={<p className="text-center text-[var(--gray-500)]">Loading…</p>}>
+        <LoginForm />
+      </Suspense>
+    </AuthShell>
   );
 }

@@ -2,7 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { SchoolLevel } from "@prisma/client";
+import { Pencil, X } from "lucide-react";
 import { Button, Input } from "@/components/ui/primitives";
+import { Card, Select } from "@/components/ui/Card";
 import { createClassLevel, createSection, updateClassLevel } from "./actions";
 
 type LevelRow = {
@@ -14,11 +16,16 @@ type LevelRow = {
   sections: { id: string; name: string }[];
 };
 
-const LEVEL_OPTIONS = Object.values(SchoolLevel);
+const LEVEL_OPTIONS = Object.values(SchoolLevel).map((opt) => ({
+  value: opt,
+  label: opt,
+}));
 
 export function ClassesManager({ levels }: { levels: LevelRow[] }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   async function onCreateLevel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,120 +68,185 @@ export function ClassesManager({ levels }: { levels: LevelRow[] }) {
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] shadow-[var(--shadow-sm)]">
+      <div className="surface-raised overflow-x-auto">
         <table className="min-w-full text-left text-[15px]">
           <thead className="border-b border-[var(--gray-200)] bg-[var(--gray-50)] text-[13px] uppercase tracking-[0.02em] text-[var(--gray-500)]">
             <tr>
-              <th className="px-4 py-3 font-semibold">Order</th>
               <th className="px-4 py-3 font-semibold">Name</th>
               <th className="px-4 py-3 font-semibold">Level type</th>
               <th className="px-4 py-3 font-semibold">Sections</th>
-              <th className="px-4 py-3 font-semibold">Actions</th>
+              <th className="px-4 py-3 font-semibold">Capacity</th>
+              <th className="px-4 py-3 font-semibold">Order</th>
+              <th className="px-4 py-3 font-semibold">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {levels.map((level) => (
-              <tr key={level.id} className="border-b border-[var(--gray-100)]">
-                <td className="px-4 py-2 font-variant-numeric tabular-nums">{level.order}</td>
-                <td className="px-4 py-2 font-medium text-[var(--gray-900)]">{level.name}</td>
-                <td className="px-4 py-2 text-[var(--gray-600)]">{level.levelType}</td>
-                <td className="px-4 py-2 text-[var(--gray-600)]">
-                  {level.sections.map((s) => s.name).join(", ") || "—"}
-                </td>
-                <td className="px-4 py-2">
-                  <form
-                    className="flex min-h-11 flex-wrap items-end gap-2"
-                    onSubmit={async (event) => {
-                      event.preventDefault();
-                      setError(null);
-                      const result = await updateClassLevel(new FormData(event.currentTarget));
-                      if (!result.ok) setError(result.error.message);
-                      else setMessage("Class level updated.");
-                    }}
-                  >
-                    <input type="hidden" name="id" value={level.id} />
-                    <input type="hidden" name="levelType" value={level.levelType} />
-                    <Input
-                      label="Name"
-                      name="name"
-                      defaultValue={level.name}
-                      className="min-w-[8rem]"
-                    />
-                    <Input
-                      label="Order"
-                      name="order"
-                      type="number"
-                      defaultValue={level.order}
-                      className="w-20"
-                    />
-                    <Input
-                      label="Capacity"
-                      name="capacity"
-                      type="number"
-                      defaultValue={level.capacity ?? ""}
-                      className="w-24"
-                    />
-                    <Button type="submit" variant="secondary">
-                      Save
-                    </Button>
-                  </form>
+            {levels.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-[15px] text-[var(--gray-500)]">
+                  No class levels yet. Add one below.
                 </td>
               </tr>
-            ))}
+            ) : (
+              levels.map((level) => {
+                const isEditing = editingId === level.id;
+                const sectionsSummary =
+                  level.sections.map((s) => s.name).join(", ") || "—";
+
+                return (
+                  <tr
+                    key={level.id}
+                    className={`interactive-row border-b border-[var(--gray-100)] ${
+                      isEditing ? "bg-[var(--brand-50)]/40" : ""
+                    }`}
+                  >
+                    {isEditing ? (
+                      <td colSpan={6} className="px-4 py-4">
+                        <form
+                          className="motion-enter flex flex-col gap-4"
+                          onSubmit={async (event) => {
+                            event.preventDefault();
+                            setError(null);
+                            setSaving(true);
+                            const result = await updateClassLevel(
+                              new FormData(event.currentTarget),
+                            );
+                            setSaving(false);
+                            if (!result.ok) {
+                              setError(result.error.message);
+                              return;
+                            }
+                            setMessage("Class level updated.");
+                            setEditingId(null);
+                          }}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-[15px] font-semibold text-[var(--gray-900)]">
+                              Edit {level.name}
+                            </p>
+                            <button
+                              type="button"
+                              className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--gray-600)] hover:bg-[var(--gray-100)]"
+                              aria-label="Cancel editing"
+                              onClick={() => setEditingId(null)}
+                            >
+                              <X className="h-4 w-4" aria-hidden />
+                            </button>
+                          </div>
+                          <input type="hidden" name="id" value={level.id} />
+                          <input type="hidden" name="levelType" value={level.levelType} />
+                          <div className="flex flex-wrap items-end gap-3">
+                            <Input
+                              label="Name"
+                              name="name"
+                              defaultValue={level.name}
+                              className="min-w-[10rem]"
+                              required
+                            />
+                            <Input
+                              label="Order"
+                              name="order"
+                              type="number"
+                              defaultValue={level.order}
+                              className="w-24"
+                              required
+                            />
+                            <Input
+                              label="Capacity"
+                              name="capacity"
+                              type="number"
+                              defaultValue={level.capacity ?? ""}
+                              className="w-28"
+                            />
+                            <Button type="submit" loading={saving}>
+                              Save
+                            </Button>
+                          </div>
+                          <p className="text-[13px] text-[var(--gray-500)]">
+                            Level type: {level.levelType} · Sections: {sectionsSummary}
+                          </p>
+                        </form>
+                      </td>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3 font-medium text-[var(--gray-900)]">
+                          {level.name}
+                        </td>
+                        <td className="px-4 py-3 text-[var(--gray-600)]">{level.levelType}</td>
+                        <td className="px-4 py-3 text-[var(--gray-600)]">{sectionsSummary}</td>
+                        <td className="px-4 py-3 font-variant-numeric tabular-nums text-[var(--gray-600)]">
+                          {level.capacity ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 font-variant-numeric tabular-nums text-[var(--gray-600)]">
+                          {level.order}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
+                            aria-label={`Edit ${level.name}`}
+                            onClick={() => setEditingId(level.id)}
+                          >
+                            <Pencil className="h-4 w-4" aria-hidden />
+                          </button>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
 
       <div className="grid max-w-4xl gap-6 lg:grid-cols-2">
-        <form
-          onSubmit={onCreateLevel}
-          className="flex flex-col gap-4 rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]"
-        >
-          <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Add class level</h2>
-          <Input label="Name" name="name" placeholder="Primary 7" required />
-          <label className="flex flex-col gap-2">
-            <span className="text-[15px] font-medium text-[var(--gray-800)]">Level type</span>
-            <select
+        <Card>
+          <form onSubmit={onCreateLevel} className="flex flex-col gap-4">
+            <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Add class level</h2>
+            <Input label="Name" name="name" placeholder="Primary 7" required />
+            <Select
+              label="Level type"
               name="levelType"
               required
-              className="min-h-11 rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-white px-3 text-base"
               defaultValue={SchoolLevel.PRIMARY}
-            >
-              {LEVEL_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Input label="Sort order" name="order" type="number" defaultValue={levels.length + 1} required />
-          <Input label="Capacity (optional)" name="capacity" type="number" />
-          <Button type="submit">Add class</Button>
-        </form>
+              options={LEVEL_OPTIONS}
+            />
+            <Input
+              label="Sort order"
+              name="order"
+              type="number"
+              defaultValue={levels.length + 1}
+              required
+            />
+            <Input label="Capacity (optional)" name="capacity" type="number" />
+            <Button type="submit" className="self-start">
+              Add class
+            </Button>
+          </form>
+        </Card>
 
-        <form
-          onSubmit={onCreateSection}
-          className="flex flex-col gap-4 rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]"
-        >
-          <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Add section</h2>
-          <label className="flex flex-col gap-2">
-            <span className="text-[15px] font-medium text-[var(--gray-800)]">Class level</span>
-            <select
+        <Card>
+          <form onSubmit={onCreateSection} className="flex flex-col gap-4">
+            <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Add section</h2>
+            <Select
+              label="Class level"
               name="classLevelId"
               required
-              className="min-h-11 rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-white px-3 text-base"
-            >
-              <option value="">Select class</option>
-              {levels.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Input label="Section name" name="name" placeholder="B" required />
-          <Button type="submit">Add section</Button>
-        </form>
+              defaultValue=""
+              options={[
+                { value: "", label: "Select class" },
+                ...levels.map((l) => ({ value: l.id, label: l.name })),
+              ]}
+            />
+            <Input label="Section name" name="name" placeholder="B" required />
+            <Button type="submit" className="self-start">
+              Add section
+            </Button>
+          </form>
+        </Card>
       </div>
     </div>
   );

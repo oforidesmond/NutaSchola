@@ -33,23 +33,35 @@ export function Button({
   ...props
 }: ButtonProps) {
   const base =
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-sm)] px-4 text-[15px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-600)] disabled:cursor-not-allowed disabled:opacity-50";
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-sm)] px-4 text-[15px] font-semibold transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-600)] disabled:cursor-not-allowed disabled:opacity-50";
 
   const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
     primary:
       "bg-[var(--brand-600)] text-white hover:bg-[var(--brand-700)] active:bg-[var(--brand-800)]",
     secondary:
-      "bg-[var(--gray-100)] text-[var(--gray-900)] hover:bg-[var(--gray-200)]",
-    ghost: "bg-transparent text-[var(--brand-700)] hover:bg-[var(--brand-50)]",
+      "bg-[var(--gray-100)] text-[var(--gray-900)] hover:bg-[var(--gray-200)] active:bg-[var(--gray-300)]",
+    ghost:
+      "bg-transparent text-[var(--brand-700)] hover:bg-[var(--brand-50)] active:bg-[var(--brand-100)]",
   };
 
   return (
     <button
       className={`${base} ${variants[variant]} ${className}`}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
     >
-      {loading ? "Please wait…" : children}
+      {loading ? (
+        <>
+          <span
+            className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+            aria-hidden
+          />
+          Please wait…
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }

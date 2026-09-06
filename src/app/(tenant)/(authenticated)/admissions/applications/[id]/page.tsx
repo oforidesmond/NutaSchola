@@ -1,9 +1,15 @@
 import { notFound } from "next/navigation";
 import { PageHeader, StatusBadge } from "@/components/ui/primitives";
+import { Breadcrumb } from "@/components/ui/Card";
 import { requireAction } from "@/lib/auth/session";
 import { ACTIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
-import { admissionStageLabel, admissionStageTone, canConvertFromStage, lastTrackStageFromHistory } from "@/lib/admissions/stages";
+import {
+  admissionStageLabel,
+  admissionStageTone,
+  canConvertFromStage,
+  lastTrackStageFromHistory,
+} from "@/lib/admissions/stages";
 import { invoiceHasAnyPayment } from "@/lib/admissions/convert";
 import { AdmissionStageTracker } from "@/components/admissions/AdmissionStageTracker";
 import { ExportMenu } from "@/components/reports/ExportMenu";
@@ -66,29 +72,39 @@ export default async function ApplicationDetailPage({
   }
 
   const freezeAtStage = lastTrackStageFromHistory(application.statusHistory);
+  const fullName = `${application.firstName} ${application.lastName}`;
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        title={`${application.firstName} ${application.lastName}`}
-        description={`${application.applicationNumber} · Applied for ${application.classLevelApplied.name} · ${application.academicYear.name}`}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <ExportMenu
-              links={[
-                {
-                  label: "Export PDF",
-                  href: `/api/reports/admissions/applications/${application.id}`,
-                },
-              ]}
-            />
-            <StatusBadge
-              label={admissionStageLabel(application.stage)}
-              tone={admissionStageTone(application.stage)}
-            />
-          </div>
-        }
-      />
+    <div className="flex flex-col gap-6">
+      <div>
+        <Breadcrumb
+          items={[
+            { label: "Admissions", href: "/admissions" },
+            { label: "Applications", href: "/admissions/applications" },
+            { label: fullName },
+          ]}
+        />
+        <PageHeader
+          title={fullName}
+          description={`${application.applicationNumber} · Applied for ${application.classLevelApplied.name} · ${application.academicYear.name}`}
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <ExportMenu
+                links={[
+                  {
+                    label: "Export PDF",
+                    href: `/api/reports/admissions/applications/${application.id}`,
+                  },
+                ]}
+              />
+              <StatusBadge
+                label={admissionStageLabel(application.stage)}
+                tone={admissionStageTone(application.stage)}
+              />
+            </div>
+          }
+        />
+      </div>
 
       <AdmissionStageTracker stage={application.stage} freezeAtStage={freezeAtStage} />
 

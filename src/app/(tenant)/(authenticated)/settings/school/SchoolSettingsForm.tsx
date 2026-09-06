@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { Button, Input, Textarea } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/Card";
 import { updateSchoolSettings } from "./actions";
 
 type SchoolSettingsFormProps = {
@@ -51,7 +53,7 @@ export function SchoolSettingsForm({
 
   return (
     <form onSubmit={onSubmit} className="flex max-w-2xl flex-col gap-6">
-      <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+      <Card>
         <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">School profile</h2>
         <p className="mt-1 text-[15px] text-[var(--gray-600)]">
           Details shown on letters and staff screens for Excellence Kids.
@@ -88,9 +90,9 @@ export function SchoolSettingsForm({
             />
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+      <Card>
         <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">
           Numbering & notifications
         </h2>
@@ -137,9 +139,9 @@ export function SchoolSettingsForm({
             Enable SMS notifications
           </label>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--brand-50)] p-6">
+      <Card variant="emphasis">
         <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">
           Current academic year
         </h2>
@@ -149,13 +151,13 @@ export function SchoolSettingsForm({
         <p className="mt-1 text-[15px] text-[var(--gray-600)]">
           Manage years, terms, classes, and subjects from the Academic settings screens.
         </p>
-        <a
+        <Link
           href="/settings/academic"
           className="mt-3 inline-flex min-h-11 items-center text-[15px] font-semibold text-[var(--brand-700)] hover:underline"
         >
           Open academic years &amp; terms
-        </a>
-      </section>
+        </Link>
+      </Card>
 
       {error ? (
         <p className="rounded-[var(--radius-sm)] bg-[var(--error-50)] px-3 py-2 text-[15px] text-[var(--error-700)]">
@@ -168,9 +170,14 @@ export function SchoolSettingsForm({
         </p>
       ) : null}
 
-      <Button type="submit" loading={loading} className="self-start">
-        Save settings
-      </Button>
+      <div className="flex flex-wrap items-center gap-3 border-t border-[var(--gray-200)] pt-4">
+        <Button type="submit" loading={loading}>
+          Save school settings
+        </Button>
+        <p className="text-[13px] text-[var(--gray-500)]">
+          Saves profile, numbering, and notification preferences.
+        </p>
+      </div>
     </form>
   );
 }

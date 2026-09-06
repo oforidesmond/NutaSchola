@@ -223,3 +223,58 @@ Client corrections on working Phase 0–3 code (not a rebuild). Four sequential 
 - SMS gateway; Paystack/Hubtel; general fees beyond admission fee.
 - Document delete/replace; inquiry-only lightweight intake.
 - Auth.js Prisma adapter DB sessions; platform admin; Postgres RLS (Phase 8).
+
+---
+
+## 2026-09-06 — Premium UI/UX elevation pass
+
+Visual/structural polish across the staff app. No schema, permission, or admissions workflow semantics changed.
+
+### Shell / navigation
+
+- Replaced flat top nav with a **grouped, icon-led left sidebar** ([`TenantShell.tsx`](src/components/layout/TenantShell.tsx), [`nav.ts`](src/components/layout/nav.ts)): Dashboard; Admissions (Overview, Applications); Settings (School, Academic, Classes, Subjects, Fees); Staff (Invite).
+- Pathname **active states** (brand-50 + left accent). Mobile hamburger drawer. Main content `max-w-7xl`.
+- Why: flat six-link top nav would not scale to Fees / Attendance / Academics / Communications later.
+
+### Typography
+
+- **Decision:** UI remains Geist / system **sans**; serif stays **wordmark-only** (`.brand-wordmark` on marketing) per design language — do not formalize serif page titles.
+- **Bug fixed:** `--font-geist-sans` was set on `<body>` while `html { font-family: … var(--font-geist-sans) … }` ran on `<html>`, so the variable was out of scope, the rule was invalid, and the UA **serif** default painted the whole app (matching screenshots). Fix: variables on `<html>`, `geistSans.className` + body `font-family` with Geist first ([`layout.tsx`](src/app/layout.tsx), [`globals.css`](src/app/globals.css)).
+
+### Global interactive states
+
+- Shared utilities: `surface-*`, `interactive-row`, `interactive-card`, `focus-ring`, `.motion-enter` (respects `prefers-reduced-motion`).
+- Button loading spinner + stronger hover/active across variants.
+
+### Shared components
+
+- **`FeeProgress`** ([`FeeProgress.tsx`](src/components/ui/FeeProgress.tsx)) — default + **compact** table variant. Used on: applications list, applicant FeePanel, admissions dashboard fee strip.
+- **`Avatar`**, **`Card` / `Breadcrumb` / `Select`**, **`AuthShell`**.
+- **`getAdmissionNextAction`** ([`next-action.ts`](src/lib/admissions/next-action.ts)).
+
+### Dependency
+
+- Added **`lucide-react`** for nav, shortcuts, row actions, empty-state affordances.
+
+### Pages restructured
+
+| Page | Change |
+|------|--------|
+| `/admissions/applications/[id]` | Breadcrumb; single stage badge; tracker without duplicate badge; What’s next card; stage + fee near top; progressive convert; bio/guardians/docs; history; collapsed danger zone |
+| `/admissions/applications` | Compact FeeProgress; initials avatars; denser rows; row hover |
+| `/admissions/applications/new` | 3-step wizard (bio → school/class → guardian) |
+| `/admissions` | FeeProgress + proportional bars for stage/class |
+| `/dashboard` | Live metrics (open apps, outstanding fees, year/term) + shortcuts; removed stale “later phases” copy |
+| `/settings/classes`, `/subjects` | Read-only tables; one-row expand-to-edit |
+| `/settings/academic` | Separated Set current year vs term |
+| `/settings/fees`, `/school` | Surface hierarchy / layout balance; staff-facing fees copy |
+| `/login`, `/reset-password`, `/accept-invite` | Shared AuthShell brand treatment |
+| `/staff/invite`, `/admin`, marketing | Light consistency polish |
+
+### Deliberately deferred
+
+- Dark mode activation (tokens exist; not enabled).
+- Chart library (CSS bars only).
+- Migrating every remaining raw `<select>` to `Select` (touched pages prefer shared styles; not a full sweep).
+- White reversed logo SVG; document delete/replace; inquiry-only intake.
+- Phase 4+ modules (attendance, academics depth, parent portal, etc.).

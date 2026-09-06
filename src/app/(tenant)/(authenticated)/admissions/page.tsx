@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { PageHeader, StatusBadge } from "@/components/ui/primitives";
+import { FeeProgress } from "@/components/ui/FeeProgress";
 import { requireAction } from "@/lib/auth/session";
 import { ACTIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
@@ -65,7 +67,11 @@ export default async function AdmissionsDashboardPage() {
     feeInvoiced = feeInvoiced.plus(new Decimal(inv.totalAmount.toString()));
     feePaid = feePaid.plus(new Decimal(inv.amountPaid.toString()));
   }
-  const feeOutstanding = feeInvoiced.minus(feePaid);
+  const feeOutstandingAmt = feeInvoiced.minus(feePaid);
+  const maxStageCount = Math.max(
+    1,
+    ...ALL_FILTER_STAGES.map((s) => stageCountByStage.get(s) ?? 0),
+  );
 
   const classRows = classGroups
     .map((g) => ({
@@ -75,6 +81,7 @@ export default async function AdmissionsDashboardPage() {
       count: g._count._all,
     }))
     .sort((a, b) => a.order - b.order);
+  const maxClassCount = Math.max(1, ...classRows.map((r) => r.count), 1);
 
   return (
     <div className="flex flex-col gap-8">
@@ -93,8 +100,9 @@ export default async function AdmissionsDashboardPage() {
             />
             <Link
               href="/admissions/applications/new"
-              className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--brand-600)] px-4 text-[15px] font-semibold text-white transition hover:bg-[var(--brand-700)]"
+              className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--brand-600)] px-4 text-[15px] font-semibold text-white transition hover:bg-[var(--brand-700)]"
             >
+              <Plus className="h-4 w-4" aria-hidden />
               New application
             </Link>
           </div>
@@ -107,41 +115,66 @@ export default async function AdmissionsDashboardPage() {
         <SummaryCard label="Inquiry → enrolled" value={`${conversionRate.toFixed(1)}%`} />
       </div>
 
-      <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+      <section className="surface-raised p-6">
         <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Admission fees</h2>
         <p className="mt-1 text-[15px] text-[var(--gray-600)]">
-          Separate from stage counts — partial payment is a normal state.
+          School-wide admission fee totals — partial payment is a normal state.
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <SummaryCard label="Invoiced" value={formatGhs(feeInvoiced.toFixed(2))} />
-          <SummaryCard label="Paid" value={formatGhs(feePaid.toFixed(2))} />
-          <SummaryCard label="Outstanding" value={formatGhs(feeOutstanding.toFixed(2))} />
+        <div className="mt-5 max-w-md">
+          <FeeProgress
+            amounts={{
+              totalAmount: feeInvoiced.toFixed(2),
+              amountPaid: feePaid.toFixed(2),
+            }}
+          />
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <MiniStat label="Invoiced" value={formatGhs(feeInvoiced.toFixed(2))} />
+          <MiniStat label="Paid" value={formatGhs(feePaid.toFixed(2))} />
+          <MiniStat label="Outstanding" value={formatGhs(feeOutstandingAmt.toFixed(2))} />
         </div>
       </section>
 
-      <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+      <section className="surface-raised p-6">
         <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">By stage</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {ALL_FILTER_STAGES.map((stage) => (
-            <div
-              key={stage}
-              className="flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--gray-100)] px-4 py-3"
-            >
-              <StatusBadge label={admissionStageLabel(stage)} tone={admissionStageTone(stage)} />
-              <span className="font-variant-numeric tabular-nums text-[20px] font-semibold text-[var(--gray-900)]">
-                {stageCountByStage.get(stage) ?? 0}
-              </span>
-            </div>
-          ))}
-        </div>
+        <ul className="mt-5 flex flex-col gap-3">
+          {ALL_FILTER_STAGES.map((stage) => {
+            const count = stageCountByStage.get(stage) ?? 0;
+            const pct = Math.round((count / maxStageCount) * 100);
+            return (
+              <li key={stage} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4">
+                <div className="flex min-w-[11rem] items-center justify-between gap-2 sm:justify-start">
+                  <StatusBadge
+                    label={admissionStageLabel(stage)}
+                    tone={admissionStageTone(stage)}
+                  />
+                  <span className="font-variant-numeric tabular-nums text-[15px] font-semibold text-[var(--gray-900)] sm:hidden">
+                    {count}
+                  </span>
+                </div>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--gray-100)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--brand-500)]"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="hidden w-8 shrink-0 text-right font-variant-numeric tabular-nums text-[15px] font-semibold text-[var(--gray-900)] sm:inline">
+                    {count}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
-      <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+      <section className="surface-raised p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">By class applied for</h2>
           <Link
             href="/admissions/applications"
-            className="inline-flex min-h-11 items-center text-[15px] font-semibold text-[var(--brand-700)] hover:underline"
+            className="focus-ring inline-flex min-h-11 items-center rounded-[var(--radius-sm)] px-2 text-[15px] font-semibold text-[var(--brand-700)] hover:underline"
           >
             View all applications
           </Link>
@@ -149,24 +182,27 @@ export default async function AdmissionsDashboardPage() {
         {classRows.length === 0 ? (
           <p className="mt-3 text-[15px] text-[var(--gray-600)]">No applications yet.</p>
         ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-left text-[15px]">
-              <thead className="border-b border-[var(--gray-200)] text-[13px] uppercase tracking-[0.02em] text-[var(--gray-500)]">
-                <tr>
-                  <th className="px-4 py-2 font-semibold">Class</th>
-                  <th className="px-4 py-2 font-semibold">Applications</th>
-                </tr>
-              </thead>
-              <tbody>
-                {classRows.map((row) => (
-                  <tr key={row.id} className="border-b border-[var(--gray-100)]">
-                    <td className="px-4 py-2 font-medium text-[var(--gray-900)]">{row.name}</td>
-                    <td className="px-4 py-2 font-variant-numeric tabular-nums">{row.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="mt-5 flex flex-col gap-3">
+            {classRows.map((row) => {
+              const pct = Math.round((row.count / maxClassCount) * 100);
+              return (
+                <li key={row.id} className="flex items-center gap-4">
+                  <span className="w-28 shrink-0 text-[15px] font-medium text-[var(--gray-900)] sm:w-36">
+                    {row.name}
+                  </span>
+                  <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--gray-100)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--brand-400)]"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-right font-variant-numeric tabular-nums text-[15px] font-semibold text-[var(--gray-900)]">
+                    {row.count}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
     </div>
@@ -175,7 +211,7 @@ export default async function AdmissionsDashboardPage() {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-5 shadow-[var(--shadow-sm)]">
+    <section className="surface-raised p-5">
       <p className="text-[13px] font-medium uppercase tracking-[0.02em] text-[var(--gray-500)]">
         {label}
       </p>
@@ -183,5 +219,18 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
         {value}
       </p>
     </section>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[var(--radius-sm)] bg-[var(--gray-50)] px-3 py-2">
+      <p className="text-[12px] font-medium uppercase tracking-[0.02em] text-[var(--gray-500)]">
+        {label}
+      </p>
+      <p className="mt-0.5 font-variant-numeric tabular-nums text-[15px] font-semibold text-[var(--gray-900)]">
+        {value}
+      </p>
+    </div>
   );
 }

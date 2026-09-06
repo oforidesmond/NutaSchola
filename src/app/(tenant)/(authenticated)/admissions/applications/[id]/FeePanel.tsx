@@ -3,8 +3,9 @@
 import { FormEvent, useState } from "react";
 import type { InvoiceStatus, PaymentMethod } from "@prisma/client";
 import { Button, Input, StatusBadge } from "@/components/ui/primitives";
+import { FeeProgress } from "@/components/ui/FeeProgress";
 import { ADMISSION_PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from "@/lib/admissions/labels";
-import { formatFeePaymentSummary, feeOutstanding } from "@/lib/admissions/fees";
+import { feeOutstanding } from "@/lib/admissions/fees";
 import { formatDateAccra, formatGhs } from "@/lib/format/currency";
 import { generateAdmissionFeeInvoiceAction, recordAdmissionFeePaymentAction } from "./actions";
 
@@ -37,16 +38,17 @@ const INVOICE_STATUS_TONE: Record<InvoiceStatus, "neutral" | "info" | "success" 
 export function FeePanel({
   applicationId,
   invoice,
+  emphasized = false,
 }: {
   applicationId: string;
   invoice: InvoiceView;
+  emphasized?: boolean;
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const balance = invoice ? Number(feeOutstanding(invoice).toFixed(2)) : 0;
-  const paymentSummary = invoice ? formatFeePaymentSummary(invoice) : null;
 
   async function onGenerateInvoice() {
     setLoading(true);
@@ -81,7 +83,7 @@ export function FeePanel({
   }
 
   return (
-    <section className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
+    <section className={emphasized ? "surface-emphasis p-6" : "surface-raised p-6"}>
       <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Admission fee</h2>
 
       {message ? (
@@ -114,11 +116,7 @@ export function FeePanel({
             />
           </div>
 
-          {paymentSummary ? (
-            <p className="rounded-[var(--radius-sm)] bg-[var(--brand-50)] px-3 py-2 text-[15px] font-medium text-[var(--brand-800)]">
-              {paymentSummary}
-            </p>
-          ) : null}
+          {invoice ? <FeeProgress amounts={invoice} className="mt-1" /> : null}
 
           <ul className="divide-y divide-[var(--gray-100)] rounded-[var(--radius-sm)] border border-[var(--gray-100)]">
             {invoice.items.map((item) => (

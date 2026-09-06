@@ -40,12 +40,14 @@ export function InviteStaffForm() {
       return;
     }
 
-    setMessage("Invite created. In local dev the email link is printed in the server logs.");
+    setMessage(
+      "Invite sent. The staff member will receive an email with a link to set their password.",
+    );
     event.currentTarget.reset();
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex max-w-xl flex-col gap-4">
+    <form onSubmit={onSubmit} className="surface-raised flex max-w-xl flex-col gap-4 p-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="First name" name="firstName" required />
         <Input label="Last name" name="lastName" required />

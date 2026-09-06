@@ -4,9 +4,7 @@ import {
   admissionStageLabel,
   isTerminalStage,
   trackerActiveIndex,
-  admissionStageTone,
 } from "@/lib/admissions/stages";
-import { StatusBadge } from "@/components/ui/primitives";
 
 type Props = {
   stage: AdmissionStage;
@@ -24,11 +22,8 @@ export function AdmissionStageTracker({ stage, freezeAtStage = null }: Props) {
   const activeIdx = trackerActiveIndex(stage, freezeAtStage);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="text-[15px] font-medium text-[var(--gray-800)]">Admission progress</p>
-        <StatusBadge label={admissionStageLabel(stage)} tone={admissionStageTone(stage)} />
-      </div>
+    <div className="surface-raised p-5 sm:p-6">
+      <p className="mb-4 text-[15px] font-medium text-[var(--gray-800)]">Admission progress</p>
       <ol className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-start md:gap-2">
         {ADMISSION_TRACK.map((step, index) => {
           const completed = !terminal && index < activeIdx;

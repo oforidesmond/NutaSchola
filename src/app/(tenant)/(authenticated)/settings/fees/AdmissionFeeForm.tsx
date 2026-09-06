@@ -37,22 +37,21 @@ export function AdmissionFeeForm({
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="mt-4 flex max-w-md flex-col gap-4 rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]"
-    >
+    <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
       <input type="hidden" name="feeItemId" value={feeItemId} />
-      <Input label="Fee item name" name="itemName" defaultValue={itemName} required />
-      <Input
-        label="Amount (GHS)"
-        name="amount"
-        type="number"
-        step="0.01"
-        min="0.01"
-        defaultValue={amount}
-        required
-        className="font-variant-numeric tabular-nums"
-      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input label="Fee item name" name="itemName" defaultValue={itemName} required />
+        <Input
+          label="Amount (GHS)"
+          name="amount"
+          type="number"
+          step="0.01"
+          min="0.01"
+          defaultValue={amount}
+          required
+          className="font-variant-numeric tabular-nums"
+        />
+      </div>
       <p className="text-[13px] text-[var(--gray-500)]">
         Changing this amount does not alter invoices already issued for applicants.
       </p>

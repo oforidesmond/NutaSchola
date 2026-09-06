@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { auth, signOut } from "@/lib/auth";
 import { requireTenant } from "@/lib/tenancy";
 import { TenantShell } from "@/components/layout/TenantShell";
+
+async function signOutAction() {
+  "use server";
+  await signOut({ redirectTo: "/login" });
+}
 
 export default async function AuthenticatedLayout({
   children,
@@ -23,6 +28,7 @@ export default async function AuthenticatedLayout({
     <TenantShell
       userName={session.user.name ?? session.user.email ?? "Staff"}
       schoolName={schoolName}
+      signOutAction={signOutAction}
     >
       {children}
     </TenantShell>

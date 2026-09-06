@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader, Button } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/Card";
 import { requireAction } from "@/lib/auth/session";
 import { ACTIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
@@ -31,27 +32,37 @@ export default async function FeesSettingsPage() {
       />
 
       {!feeStructure || !primaryItem ? (
-        <p className="mt-4 text-[15px] text-[var(--gray-600)]">
-          No admission fee structure is configured. Run the database seed or create an admission{" "}
-          <code className="text-[13px]">FeeStructure</code> with{" "}
-          <code className="text-[13px]">isAdmissionFee</code> for this school.
-        </p>
-      ) : (
-        <div className="mt-2">
-          <p className="text-[15px] text-[var(--gray-700)]">
-            Structure: <span className="font-medium text-[var(--gray-900)]">{feeStructure.name}</span>
-            {" · "}
-            Current amount:{" "}
-            <span className="font-variant-numeric tabular-nums font-semibold">
-              {formatGhs(primaryItem.amount.toString())}
-            </span>
+        <Card variant="flat" className="mt-4 max-w-3xl">
+          <p className="text-base font-medium text-[var(--gray-800)]">
+            Admission fee not set up yet
           </p>
+          <p className="mt-2 text-[15px] text-[var(--gray-600)]">
+            This school does not have an admission fee configured. Ask your platform
+            administrator to finish school setup, or re-run the school seed so the
+            default admission fee is created.
+          </p>
+        </Card>
+      ) : (
+        <Card className="mt-2 max-w-3xl">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">
+                Admission fee
+              </h2>
+              <p className="mt-1 text-[15px] text-[var(--gray-600)]">
+                {feeStructure.name}
+              </p>
+            </div>
+            <p className="font-variant-numeric text-[22px] font-semibold tabular-nums text-[var(--gray-900)]">
+              {formatGhs(primaryItem.amount.toString())}
+            </p>
+          </div>
           <AdmissionFeeForm
             feeItemId={primaryItem.id}
             itemName={primaryItem.name}
             amount={primaryItem.amount.toFixed(2)}
           />
-        </div>
+        </Card>
       )}
     </div>
   );

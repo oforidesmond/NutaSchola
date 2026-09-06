@@ -8,24 +8,24 @@ import { PageHeader, StatusBadge } from "@/components/ui/primitives";
  */
 export default function PlatformAdminPage() {
   return (
-    <div className="min-h-screen bg-[var(--gray-50)]">
-      <header className="border-b border-[var(--gray-200)] bg-[var(--white)] px-6 py-4">
+    <div className="min-h-screen bg-[linear-gradient(180deg,var(--brand-50),var(--gray-50))]">
+      <header className="glass-light border-b border-[var(--gray-200)] px-6 py-4">
         <BrandLogo width={140} />
       </header>
-      <main className="mx-auto max-w-4xl px-6 py-10">
+      <main className="motion-enter mx-auto max-w-4xl px-6 py-10">
         <PageHeader
           title="Platform admin"
-          description="Stub for future multi-school operations (subscriptions, onboarding, support)."
+          description="Reserved for future multi-school operations — subscriptions, onboarding, and support."
         />
-        <div className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]">
-          <StatusBadge label="Stub" tone="info" />
+        <div className="surface-raised p-6">
+          <StatusBadge label="Coming later" tone="info" />
           <p className="mt-4 text-base text-[var(--gray-600)]">
-            This route exists so Phase 7 can grow without reshaping the app. Excellence
-            Kids staff should use the tenant app instead.
+            This route is intentionally light until Phase 7. Excellence Kids staff should use the
+            school app instead.
           </p>
           <Link
             href="/dashboard"
-            className="mt-6 inline-flex min-h-11 items-center font-semibold text-[var(--brand-700)]"
+            className="focus-ring mt-6 inline-flex min-h-11 items-center rounded-[var(--radius-sm)] font-semibold text-[var(--brand-700)] hover:underline"
           >
             Back to school dashboard
           </Link>

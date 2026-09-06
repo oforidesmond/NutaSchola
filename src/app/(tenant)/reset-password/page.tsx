@@ -3,12 +3,9 @@
 import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { BrandLogo } from "@/components/brand/BrandLogo";
+import { AuthShell } from "@/components/layout/AuthShell";
 import { Button, Input } from "@/components/ui/primitives";
-import {
-  requestPasswordResetAction,
-  resetPasswordAction,
-} from "./actions";
+import { requestPasswordResetAction, resetPasswordAction } from "./actions";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -31,7 +28,7 @@ function ResetPasswordForm() {
       return;
     }
     setMessage(
-      "If that email exists, a reset link was sent. In local dev, check the server logs.",
+      "If that email exists, a reset link was sent. Check your inbox (and spam folder).",
     );
   }
 
@@ -59,13 +56,7 @@ function ResetPasswordForm() {
     <div className="flex flex-col gap-5">
       {token ? (
         <form onSubmit={onReset} className="flex flex-col gap-4">
-          <Input
-            label="Email"
-            name="email"
-            type="email"
-            defaultValue={emailFromLink}
-            required
-          />
+          <Input label="Email" name="email" type="email" defaultValue={emailFromLink} required />
           <Input
             label="New password"
             name="password"
@@ -97,7 +88,10 @@ function ResetPasswordForm() {
         </p>
       ) : null}
       <p className="text-center text-[15px]">
-        <Link href="/login" className="font-medium text-[var(--brand-700)]">
+        <Link
+          href="/login"
+          className="focus-ring rounded-[var(--radius-xs)] font-medium text-[var(--brand-700)] hover:underline"
+        >
           Back to sign in
         </Link>
       </p>
@@ -107,18 +101,13 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--gray-50)] px-4 py-10">
-      <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--gray-200)] bg-[var(--white)] p-8 shadow-[var(--shadow-md)]">
-        <div className="mb-8 flex flex-col items-center gap-4 text-center">
-          <BrandLogo width={148} />
-          <h1 className="text-[28px] font-semibold text-[var(--gray-900)]">
-            Reset password
-          </h1>
-        </div>
-        <Suspense fallback={<p className="text-center text-[var(--gray-500)]">Loading…</p>}>
-          <ResetPasswordForm />
-        </Suspense>
-      </div>
-    </div>
+    <AuthShell
+      title="Reset password"
+      description="Enter your work email and we’ll send a secure link to choose a new password."
+    >
+      <Suspense fallback={<p className="text-center text-[var(--gray-500)]">Loading…</p>}>
+        <ResetPasswordForm />
+      </Suspense>
+    </AuthShell>
   );
 }

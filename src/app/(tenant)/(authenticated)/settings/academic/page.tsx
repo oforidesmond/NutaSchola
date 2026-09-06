@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader, Button, StatusBadge } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/Card";
 import { auth } from "@/lib/auth";
 import { requireTenant } from "@/lib/tenancy";
 import { prisma } from "@/lib/db/prisma";
@@ -38,10 +39,7 @@ export default async function AcademicSettingsPage() {
 
       <div className="mb-8 flex flex-col gap-4">
         {years.map((year) => (
-          <section
-            key={year.id}
-            className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-6 shadow-[var(--shadow-sm)]"
-          >
+          <Card key={year.id}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">
@@ -59,7 +57,7 @@ export default async function AcademicSettingsPage() {
               {year.terms.map((term) => (
                 <li
                   key={term.id}
-                  className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-2"
+                  className="interactive-row flex min-h-11 flex-wrap items-center justify-between gap-2 py-2"
                 >
                   <div>
                     <p className="text-[15px] font-medium text-[var(--gray-800)]">
@@ -77,13 +75,22 @@ export default async function AcademicSettingsPage() {
                 </li>
               ))}
               {year.terms.length === 0 ? (
-                <li className="py-3 text-[15px] text-[var(--gray-500)]">No terms yet.</li>
+                <li className="py-4 text-[15px] text-[var(--gray-500)]">
+                  No terms in this year yet. Add one below.
+                </li>
               ) : null}
             </ul>
-          </section>
+          </Card>
         ))}
         {years.length === 0 ? (
-          <p className="text-base text-[var(--gray-600)]">No academic years yet. Create one below.</p>
+          <Card variant="flat" className="text-center">
+            <p className="text-base font-medium text-[var(--gray-800)]">
+              No academic years yet
+            </p>
+            <p className="mt-1 text-[15px] text-[var(--gray-600)]">
+              Create a year below to start organizing terms for admissions and enrollment.
+            </p>
+          </Card>
         ) : null}
       </div>
 
