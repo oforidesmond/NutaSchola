@@ -1,11 +1,16 @@
 import { brand } from "@/config/brand";
 
+/**
+ * Public origin used in invite/reset emails and absolute email assets.
+ * Set APP_URL per environment (e.g. http://localhost:3000 locally, https://your.domain in prod).
+ */
 export function appBaseUrl(): string {
-  return (
-    process.env.AUTH_URL?.replace(/\/$/, "") ||
-    process.env.NEXTAUTH_URL?.replace(/\/$/, "") ||
-    "http://localhost:3000"
-  );
+  const raw =
+    process.env.APP_URL?.trim() ||
+    process.env.AUTH_URL?.trim() ||
+    process.env.NEXTAUTH_URL?.trim() ||
+    "http://localhost:3000";
+  return raw.replace(/\/$/, "");
 }
 
 type ShellInput = {

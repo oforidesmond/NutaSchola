@@ -146,6 +146,10 @@ export function SchoolSettingsForm({
             />
             Enable SMS notifications
           </label>
+          <p className="text-[13px] text-[var(--gray-500)]">
+            When on, guardians receive SMS for fee events, stage updates, arrears reminders, and
+            broadcasts from Communications. Requires SMS provider credentials on the server.
+          </p>
         </div>
       </Card>
 

@@ -326,5 +326,34 @@ Extends Phase 1 auth/mail scaffolding (does not replace Auth.js Credentials + JW
 
 - Auth.js Prisma adapter / DB sessions (would enable true server-side session revoke).
 - `STAFF_MANAGE` still unused — whole staff screen uses `staff.invite`.
-- SMS; multi-instance distributed rate limiting.
+- Multi-instance distributed rate limiting for SMS/email.
 - Phase 4+ modules; platform admin; Postgres RLS.
+
+---
+
+## 2026-09-07 — Guardian SMS (ebits)
+
+Adds Ghana SMS notifications via ebits (Arkesel-compatible), gated by `SchoolSettings.enableSmsNotifications`.
+
+### SMS stack (`src/lib/sms/`)
+
+- Provider switch: `SMS_PROVIDER=ebits` + `EBITS_SMS_*` → live send; otherwise **noop** (console log).
+- Files: `send.ts`, `dispatch.ts` (never throws; writes `NotificationLog`), `phone.ts` (GH normalize), `templates.ts`, `providers/ebits.ts` + `noop.ts`.
+- Env (placeholders in [`.env.example`](.env.example)): `SMS_PROVIDER`, `EBITS_SMS_BASE_URL`, `EBITS_SMS_API_KEY`, `EBITS_SMS_SENDER_ID`.
+
+### Hooks
+
+- Stage change, admission fee invoice generate, payment recorded → guardian SMS (+ existing email for stage).
+- Staff **Send arrears reminder** on FeePanel; bulk remind on `/admissions`.
+- `/communications` Compose SMS (all primary guardians or by class) → `Announcement` + batched SMS.
+- Permission: `communications.send` (owners/admins + accountant).
+
+### Schema
+
+- Migration [`20260907163000_notification_log_sms_fields`](prisma/migrations/20260907163000_notification_log_sms_fields/migration.sql): `NotificationLog.schoolId`, `body`, `errorMessage`.
+
+### Smoke checklist
+
+1. Leave `SMS_PROVIDER=noop`, enable SMS in School settings → record payment / compose → check server logs + `NotificationLog`.
+2. Set `SMS_PROVIDER=ebits` with approved sender ID → test Compose to a staff phone.
+3. With SMS toggle off, no provider calls.

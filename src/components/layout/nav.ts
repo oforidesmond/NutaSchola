@@ -9,6 +9,7 @@ import {
   BookOpen,
   Wallet,
   Users,
+  Megaphone,
 } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 import { ACTIONS, can, type Action } from "@/lib/permissions";
@@ -58,6 +59,19 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: FileText,
         match: "prefix",
         action: ACTIONS.ADMISSIONS_READ,
+      },
+    ],
+  },
+  {
+    id: "communications",
+    label: "Communications",
+    items: [
+      {
+        href: "/communications",
+        label: "Compose SMS",
+        icon: Megaphone,
+        match: "prefix",
+        action: ACTIONS.COMMUNICATIONS_SEND,
       },
     ],
   },

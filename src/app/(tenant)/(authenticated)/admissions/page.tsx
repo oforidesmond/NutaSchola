@@ -13,10 +13,12 @@ import {
 import { formatGhs } from "@/lib/format/currency";
 import { Decimal } from "@prisma/client/runtime/library";
 import { ExportMenu } from "@/components/reports/ExportMenu";
+import { BulkArrearsRemindButton } from "./BulkArrearsRemindButton";
 
 export default async function AdmissionsDashboardPage() {
   const { user, tenant } = await requirePageAccess(ACTIONS.ADMISSIONS_READ);
   const canCreate = can(user.role, ACTIONS.ADMISSIONS_CREATE);
+  const canFees = can(user.role, ACTIONS.ADMISSIONS_FEES);
 
   const [stageGroups, classGroups, totalApplications, enrolledCount, feeInvoices] =
     await Promise.all([
@@ -136,6 +138,11 @@ export default async function AdmissionsDashboardPage() {
           <MiniStat label="Paid" value={formatGhs(feePaid.toFixed(2))} />
           <MiniStat label="Outstanding" value={formatGhs(feeOutstandingAmt.toFixed(2))} />
         </div>
+        {canFees && feeOutstandingAmt.greaterThan(0) ? (
+          <BulkArrearsRemindButton
+            outstandingLabel={formatGhs(feeOutstandingAmt.toFixed(2))}
+          />
+        ) : null}
       </section>
 
       <section className="surface-raised p-6">

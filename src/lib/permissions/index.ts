@@ -25,6 +25,8 @@ export const ACTIONS = {
   ADMISSIONS_DOCUMENTS: "admissions.documents",
   ADMISSIONS_FEES: "admissions.fees",
   ADMISSIONS_CONVERT: "admissions.convert",
+
+  COMMUNICATIONS_SEND: "communications.send",
 } as const;
 
 export type Action = (typeof ACTIONS)[keyof typeof ACTIONS];
@@ -55,6 +57,7 @@ const ALL_TENANT_ACTIONS: Action[] = [
   ...ACADEMIC_ACTIONS,
   ...FEES_ACTIONS,
   ...ADMISSIONS_FULL,
+  ACTIONS.COMMUNICATIONS_SEND,
 ];
 
 const ROLE_PERMISSIONS: Record<UserRole, readonly Action[]> = {
@@ -72,6 +75,7 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Action[]> = {
     ...FEES_ACTIONS,
     ACTIONS.ADMISSIONS_READ,
     ACTIONS.ADMISSIONS_FEES,
+    ACTIONS.COMMUNICATIONS_SEND,
   ],
   TEACHER: [ACTIONS.SCHOOL_SETTINGS_READ, ACTIONS.ACADEMIC_READ],
   FRONT_DESK: [

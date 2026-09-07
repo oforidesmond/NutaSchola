@@ -267,6 +267,7 @@ model School {
   exams                 Exam[]
   examResults           ExamResult[]
   announcements         Announcement[]
+  notificationLogs      NotificationLog[]
   auditLogs             AuditLog[]
 
   @@index([slug])
@@ -874,14 +875,20 @@ model Announcement {
 
 model NotificationLog {
   id             String              @id @default(cuid())
+  schoolId       String?
+  school         School?             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   announcementId String?
   announcement   Announcement?       @relation(fields: [announcementId], references: [id])
   recipientPhone String?
   recipientEmail String?
   channel        NotificationChannel
   status         NotificationStatus  @default(QUEUED)
+  body           String?
+  errorMessage   String?
   sentAt         DateTime?
   createdAt      DateTime            @default(now())
+
+  @@index([schoolId, createdAt])
 }
 
 // ============================================================================

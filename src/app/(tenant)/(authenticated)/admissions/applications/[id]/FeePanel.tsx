@@ -12,7 +12,7 @@ import { feeOutstanding } from "@/lib/admissions/fees";
 import { formatDateAccra, formatGhs } from "@/lib/format/currency";
 import type { ReportSchoolBrand } from "@/lib/reports/types";
 import type { ReceiptApplicant } from "@/lib/receipts/types";
-import { generateAdmissionFeeInvoiceAction, recordAdmissionFeePaymentAction } from "./actions";
+import { generateAdmissionFeeInvoiceAction, recordAdmissionFeePaymentAction, sendAdmissionFeeArrearsReminderAction } from "./actions";
 
 export type InvoiceView = {
   id: string;
@@ -60,6 +60,7 @@ export function FeePanel({
   const [loading, setLoading] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [arrearsConfirmOpen, setArrearsConfirmOpen] = useState(false);
   const [pendingSummary, setPendingSummary] = useState<{
     amount: string;
     method: PaymentMethod;
@@ -124,6 +125,20 @@ export function FeePanel({
     setConfirmOpen(false);
     pendingFormDataRef.current = null;
     setPendingSummary(null);
+  }
+
+  async function confirmArrearsReminder() {
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    const result = await sendAdmissionFeeArrearsReminderAction(applicationId);
+    setLoading(false);
+    setArrearsConfirmOpen(false);
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+    setMessage("Arrears reminder SMS sent to the primary guardian.");
   }
 
   const confirmConsequence = pendingSummary
@@ -245,10 +260,20 @@ export function FeePanel({
           ) : null}
 
           {balance > 0 && !readOnly ? (
+            <div className="flex flex-col gap-4 border-t border-[var(--gray-100)] pt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                loading={loading}
+                onClick={() => setArrearsConfirmOpen(true)}
+                className="self-start"
+              >
+                Send arrears reminder SMS
+              </Button>
             <form
               ref={paymentFormRef}
               onSubmit={onRecordPayment}
-              className="flex flex-col gap-4 border-t border-[var(--gray-100)] pt-4"
+              className="flex flex-col gap-4"
             >
               <input type="hidden" name="applicationId" value={applicationId} />
               <div className="grid gap-4 sm:grid-cols-2">
@@ -284,6 +309,7 @@ export function FeePanel({
                 Record payment
               </Button>
             </form>
+            </div>
           ) : balance > 0 && readOnly ? (
             <p className="text-[15px] text-[var(--gray-600)]">
               Outstanding balance: {formatGhs(balance)}. You can view fees but cannot record payments.
@@ -304,6 +330,17 @@ export function FeePanel({
         loading={loading}
         onConfirm={() => void confirmRecordPayment()}
         onCancel={cancelRecordPayment}
+      />
+      <ConfirmDialog
+        open={arrearsConfirmOpen}
+        title="Send arrears reminder?"
+        consequence={`This sends an SMS to the primary guardian about the outstanding balance of ${formatGhs(balance)}. Only send if SMS notifications are enabled for the school.`}
+        confirmLabel="Yes, send SMS"
+        loading={loading}
+        onConfirm={() => void confirmArrearsReminder()}
+        onCancel={() => {
+          if (!loading) setArrearsConfirmOpen(false);
+        }}
       />
     </section>
   );

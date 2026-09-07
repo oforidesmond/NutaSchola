@@ -17,7 +17,10 @@ import { canConvertFromStage, MANUAL_STAGES } from "@/lib/admissions/stages";
 import { convertApplicantToStudent } from "@/lib/admissions/convert";
 import { nextAdmissionNumber } from "@/lib/admissions/numbering";
 import { findOrCreateGuardian, linkGuardianToApplication } from "@/lib/admissions/guardians";
-import { notifyStageChange } from "@/lib/admissions/notify";
+import { notifyStageChange, notifyAdmissionFeeDue, notifyAdmissionFeePayment, notifyAdmissionFeeArrears } from "@/lib/admissions/notify";
+import { resolvePrimaryGuardianContact } from "@/lib/sms";
+import { PAYMENT_METHOD_LABELS } from "@/lib/admissions/labels";
+import { feeOutstanding } from "@/lib/admissions/fees";
 
 function fieldErrorsFromZod(error: z.ZodError): Record<string, string[]> {
   const fieldErrors: Record<string, string[]> = {};
@@ -272,13 +275,20 @@ export async function changeApplicationStageAction(
     const settings = await prisma.schoolSettings.findUnique({ where: { schoolId: tenant.schoolId } });
     const primary = application.guardians[0]?.guardian ?? null;
     await notifyStageChange({
+      schoolId: tenant.schoolId,
       schoolName: tenant.school.name,
       enableEmailNotifications: settings?.enableEmailNotifications ?? false,
+      enableSmsNotifications: settings?.enableSmsNotifications ?? false,
       applicantName: `${application.firstName} ${application.lastName}`,
       applicationNumber: application.applicationNumber,
       stage: toStage,
       guardian: primary
-        ? { firstName: primary.firstName, lastName: primary.lastName, email: primary.email }
+        ? {
+            firstName: primary.firstName,
+            lastName: primary.lastName,
+            email: primary.email,
+            phone: primary.phone,
+          }
         : null,
       note,
     });
@@ -359,6 +369,17 @@ export async function generateAdmissionFeeInvoiceAction(
       });
 
       return created;
+    });
+
+    const settings = await prisma.schoolSettings.findUnique({ where: { schoolId: tenant.schoolId } });
+    const guardian = await resolvePrimaryGuardianContact(application.id);
+    await notifyAdmissionFeeDue({
+      schoolId: tenant.schoolId,
+      schoolName: tenant.school.name,
+      enableSmsNotifications: settings?.enableSmsNotifications ?? false,
+      guardian,
+      applicantName: `${application.firstName} ${application.lastName}`,
+      amountDue: totalAmount,
     });
 
     revalidateApplication(application.id);
@@ -444,8 +465,79 @@ export async function recordAdmissionFeePaymentAction(
       });
     });
 
+    const newPaid = alreadyPaid + amount;
+    const outstanding = Math.max(0, total - newPaid);
+    const settings = await prisma.schoolSettings.findUnique({ where: { schoolId: tenant.schoolId } });
+    const guardian = await resolvePrimaryGuardianContact(application.id);
+    const method = parsed.data.method as PaymentMethod;
+    await notifyAdmissionFeePayment({
+      schoolId: tenant.schoolId,
+      schoolName: tenant.school.name,
+      enableSmsNotifications: settings?.enableSmsNotifications ?? false,
+      guardian,
+      applicantName: `${application.firstName} ${application.lastName}`,
+      amountPaid: amount.toFixed(2),
+      methodLabel: PAYMENT_METHOD_LABELS[method] ?? method,
+      outstanding: outstanding.toFixed(2),
+    });
+
     revalidateApplication(application.id);
     return ok({ saved: true });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
+export async function sendAdmissionFeeArrearsReminderAction(
+  applicationId: string,
+): Promise<ActionResult<{ sent: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ADMISSIONS_FEES);
+    const application = await prisma.admissionApplication.findFirst({
+      where: { id: applicationId, schoolId: tenant.schoolId, deletedAt: null },
+      include: { admissionFeeInvoice: true },
+    });
+    if (!application) return fail("NOT_FOUND", "Application not found.");
+    if (!application.admissionFeeInvoice) {
+      return fail("NOT_FOUND", "No admission fee invoice exists for this application.");
+    }
+
+    const outstanding = feeOutstanding(application.admissionFeeInvoice);
+    if (outstanding <= 0) {
+      return fail("ALREADY_PAID", "This invoice has no outstanding balance.");
+    }
+
+    const settings = await prisma.schoolSettings.findUnique({ where: { schoolId: tenant.schoolId } });
+    if (!settings?.enableSmsNotifications) {
+      return fail(
+        "SMS_DISABLED",
+        "SMS notifications are disabled for this school. Enable them in School settings.",
+      );
+    }
+
+    const guardian = await resolvePrimaryGuardianContact(application.id);
+    if (!guardian?.phone) {
+      return fail("NO_PHONE", "No guardian phone number is on file for this application.");
+    }
+
+    const result = await notifyAdmissionFeeArrears({
+      schoolId: tenant.schoolId,
+      schoolName: tenant.school.name,
+      enableSmsNotifications: true,
+      guardian,
+      applicantName: `${application.firstName} ${application.lastName}`,
+      outstanding: outstanding.toFixed(2),
+    });
+
+    if (result.status === "failed") {
+      return fail("SMS_FAILED", result.reason || "Failed to send SMS reminder.");
+    }
+    if (result.status === "skipped") {
+      return fail("SMS_SKIPPED", result.reason || "SMS reminder was skipped.");
+    }
+
+    revalidateApplication(application.id);
+    return ok({ sent: true });
   } catch (error) {
     return fail(...toFailArgs(error));
   }

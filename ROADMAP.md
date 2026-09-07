@@ -36,7 +36,7 @@ A step-by-step plan for designing and building the platform, in order of what ne
 - [ ] Build admission fee invoicing: generate an `Invoice` off an "Admission Fee" `FeeStructure`, record a `Payment` against it (cash first; gateway integration can follow).
 - [ ] Build the "convert applicant to student" action: on admit + fee paid (or admit-only, per the client's process), create the `Student` record, `Enrollment` for the current year, and link `convertedStudentId` back to the application.
 - [ ] Build a basic admissions dashboard: counts by stage, by class, conversion rate from inquiry to enrolled.
-- [ ] Build status-change notifications (start with in-app or email; SMS can be a fast-follow once a Ghanaian SMS gateway is chosen).
+- [x] Build status-change notifications (start with in-app or email; SMS can be a fast-follow once a Ghanaian SMS gateway is chosen).
 
 ## Phase 4 — Student Records (post-admission)
 - [ ] Build the student profile view: bio-data, linked guardians, enrollment history.
@@ -57,7 +57,7 @@ A step-by-step plan for designing and building the platform, in order of what ne
 - [ ] **Fees & Payments:** general fee structures beyond admissions, invoicing UI, a Ghanaian payment gateway integration (Paystack and/or Hubtel for mobile money), receipts.
 - [ ] **Attendance:** daily attendance marking UI for teachers, absence reports, guardian notification on absence.
 - [ ] **Academics:** exam creation, result entry per subject, grade computation, printable report cards.
-- [ ] **Communications:** announcements by audience (all/staff/class), SMS/email broadcast, individual guardian messaging.
+- [ ] **Communications:** announcements by audience (all/staff/class), SMS/email broadcast, individual guardian messaging. *(SMS compose to guardians + transactional SMS shipped 2026-09-07; email broadcast / staff audience / individual messaging still open.)*
 - [ ] **Parent Portal:** dedicated guardian login (activate the `Guardian.userId` link), view child's attendance/fees/results.
 - [ ] **Staff Management:** fuller HR fields, leave tracking, and a payroll foundation if the client needs it.
 - [ ] **Reporting & Analytics:** cross-module dashboards (enrollment trends, fee collection rate, attendance trends).
