@@ -1,12 +1,17 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import type { InvoiceStatus, PaymentMethod } from "@prisma/client";
+import { Printer } from "lucide-react";
 import { Button, Input, StatusBadge } from "@/components/ui/primitives";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FeeProgress } from "@/components/ui/FeeProgress";
+import { AdmissionFeeReceiptDialog } from "@/components/receipts/AdmissionFeeReceiptDialog";
 import { ADMISSION_PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from "@/lib/admissions/labels";
 import { feeOutstanding } from "@/lib/admissions/fees";
 import { formatDateAccra, formatGhs } from "@/lib/format/currency";
+import type { ReportSchoolBrand } from "@/lib/reports/types";
+import type { ReceiptApplicant } from "@/lib/receipts/types";
 import { generateAdmissionFeeInvoiceAction, recordAdmissionFeePaymentAction } from "./actions";
 
 export type InvoiceView = {
@@ -38,17 +43,30 @@ const INVOICE_STATUS_TONE: Record<InvoiceStatus, "neutral" | "info" | "success" 
 export function FeePanel({
   applicationId,
   invoice,
+  school,
+  applicant,
   emphasized = false,
   readOnly = false,
 }: {
   applicationId: string;
   invoice: InvoiceView;
+  school: ReportSchoolBrand;
+  applicant: ReceiptApplicant;
   emphasized?: boolean;
   readOnly?: boolean;
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingSummary, setPendingSummary] = useState<{
+    amount: string;
+    method: PaymentMethod;
+    reference: string;
+  } | null>(null);
+  const paymentFormRef = useRef<HTMLFormElement>(null);
+  const pendingFormDataRef = useRef<FormData | null>(null);
 
   const balance = invoice ? Number(feeOutstanding(invoice).toFixed(2)) : 0;
 
@@ -65,24 +83,54 @@ export function FeePanel({
     setMessage("Admission fee invoice generated.");
   }
 
-  async function onRecordPayment(event: FormEvent<HTMLFormElement>) {
+  function onRecordPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const amount = String(formData.get("amount") ?? "").trim();
+    const method = String(formData.get("method") ?? "") as PaymentMethod;
+    const reference = String(formData.get("reference") ?? "").trim();
+
+    pendingFormDataRef.current = formData;
+    setPendingSummary({ amount, method, reference });
+    setConfirmOpen(true);
+  }
+
+  async function confirmRecordPayment() {
+    const formData = pendingFormDataRef.current;
+    if (!formData) return;
+
     setLoading(true);
     setError(null);
     setMessage(null);
 
-    const form = event.currentTarget;
-    const result = await recordAdmissionFeePaymentAction(new FormData(form));
+    const result = await recordAdmissionFeePaymentAction(formData);
     setLoading(false);
+    setConfirmOpen(false);
+    pendingFormDataRef.current = null;
+    setPendingSummary(null);
 
     if (!result.ok) {
       setError(result.error.message);
       return;
     }
 
-    form.reset();
+    paymentFormRef.current?.reset();
     setMessage("Payment recorded.");
   }
+
+  function cancelRecordPayment() {
+    if (loading) return;
+    setConfirmOpen(false);
+    pendingFormDataRef.current = null;
+    setPendingSummary(null);
+  }
+
+  const confirmConsequence = pendingSummary
+    ? `You are about to record ${formatGhs(pendingSummary.amount)} via ${PAYMENT_METHOD_LABELS[pendingSummary.method]}${
+        pendingSummary.reference ? ` (ref: ${pendingSummary.reference})` : ""
+      }. This updates the invoice balance and cannot be undone from this screen.`
+    : "You are about to record this admission fee payment. This updates the invoice balance and cannot be undone from this screen.";
 
   return (
     <section className={emphasized ? "surface-emphasis p-6" : "surface-raised p-6"}>
@@ -156,9 +204,20 @@ export function FeePanel({
 
           {invoice.payments.length > 0 ? (
             <div>
-              <p className="text-[13px] font-medium uppercase tracking-[0.02em] text-[var(--gray-500)]">
-                Payments
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[13px] font-medium uppercase tracking-[0.02em] text-[var(--gray-500)]">
+                  Payments
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setReceiptOpen(true)}
+                  className="min-h-9 px-3 text-[14px]"
+                >
+                  <Printer className="h-4 w-4" aria-hidden />
+                  Print receipt
+                </Button>
+              </div>
               <ul className="mt-2 divide-y divide-[var(--gray-100)]">
                 {invoice.payments.map((p) => (
                   <li key={p.id} className="flex items-center justify-between py-2 text-[15px]">
@@ -173,11 +232,19 @@ export function FeePanel({
                   </li>
                 ))}
               </ul>
+              <AdmissionFeeReceiptDialog
+                open={receiptOpen}
+                onClose={() => setReceiptOpen(false)}
+                school={school}
+                applicant={applicant}
+                invoice={invoice}
+              />
             </div>
           ) : null}
 
           {balance > 0 && !readOnly ? (
             <form
+              ref={paymentFormRef}
               onSubmit={onRecordPayment}
               className="flex flex-col gap-4 border-t border-[var(--gray-100)] pt-4"
             >
@@ -226,6 +293,16 @@ export function FeePanel({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Record this payment?"
+        consequence={confirmConsequence}
+        confirmLabel="Yes, record payment"
+        loading={loading}
+        onConfirm={() => void confirmRecordPayment()}
+        onCancel={cancelRecordPayment}
+      />
     </section>
   );
 }

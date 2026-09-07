@@ -13,6 +13,7 @@ import {
 import { invoiceHasAnyPayment } from "@/lib/admissions/convert";
 import { AdmissionStageTracker } from "@/components/admissions/AdmissionStageTracker";
 import { ExportMenu } from "@/components/reports/ExportMenu";
+import { loadSchoolBrand } from "@/lib/reports/school";
 import { ApplicationWorkspace } from "./ApplicationWorkspace";
 
 export default async function ApplicationDetailPage({
@@ -81,6 +82,7 @@ export default async function ApplicationDetailPage({
 
   const freezeAtStage = lastTrackStageFromHistory(application.statusHistory);
   const fullName = `${application.firstName} ${application.lastName}`;
+  const school = await loadSchoolBrand(tenant.schoolId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -186,6 +188,11 @@ export default async function ApplicationDetailPage({
               }
             : null
         }
+        school={school}
+        applicant={{
+          fullName,
+          classLevelAppliedName: application.classLevelApplied.name,
+        }}
         canConvert={canConvert}
         convertBlockedReason={convertBlockedReason}
         alreadyConverted={alreadyConverted}

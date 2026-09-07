@@ -15,6 +15,8 @@ import { DocumentsPanel, type DocumentRow } from "./DocumentsPanel";
 import { StageChangePanel } from "./StageChangePanel";
 import { FeePanel, type InvoiceView } from "./FeePanel";
 import { ConvertPanel, DangerZone } from "./ConvertAndDangerPanel";
+import type { ReportSchoolBrand } from "@/lib/reports/types";
+import type { ReceiptApplicant } from "@/lib/receipts/types";
 
 type ApplicationBio = {
   id: string;
@@ -52,6 +54,8 @@ export function ApplicationWorkspace({
   documents,
   statusHistory,
   invoice,
+  school,
+  applicant,
   canConvert,
   convertBlockedReason,
   alreadyConverted,
@@ -62,6 +66,8 @@ export function ApplicationWorkspace({
   documents: DocumentRow[];
   statusHistory: StatusHistoryRow[];
   invoice: InvoiceView;
+  school: ReportSchoolBrand;
+  applicant: ReceiptApplicant;
   canConvert: boolean;
   convertBlockedReason: string | null;
   alreadyConverted: boolean;
@@ -116,6 +122,8 @@ export function ApplicationWorkspace({
         <FeePanel
           applicationId={application.id}
           invoice={invoice}
+          school={school}
+          applicant={applicant}
           emphasized={nextAction.focus === "fee"}
           readOnly={!permissions.canFees}
         />
