@@ -39,17 +39,10 @@ export function AdmissionFeeReceiptDialog({
   const titleId = useId();
   const receiptDomId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [paperWidth, setPaperWidth] = useState<ThermalPaperWidth>("80mm");
-  const [paymentId, setPaymentId] = useState(invoice.payments[0]?.id ?? "");
+  const [paperWidth, setPaperWidth] = useState<ThermalPaperWidth>(() => readStoredPaperWidth());
+  const [paymentId, setPaymentId] = useState(() => invoice.payments[0]?.id ?? "");
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setPaperWidth(readStoredPaperWidth());
-    setPaymentId(invoice.payments[0]?.id ?? "");
-    setPrintError(null);
-  }, [open, invoice.payments]);
 
   useEffect(() => {
     const el = dialogRef.current;

@@ -232,13 +232,15 @@ export function FeePanel({
                   </li>
                 ))}
               </ul>
-              <AdmissionFeeReceiptDialog
-                open={receiptOpen}
-                onClose={() => setReceiptOpen(false)}
-                school={school}
-                applicant={applicant}
-                invoice={invoice}
-              />
+              {receiptOpen ? (
+                <AdmissionFeeReceiptDialog
+                  open
+                  onClose={() => setReceiptOpen(false)}
+                  school={school}
+                  applicant={applicant}
+                  invoice={invoice}
+                />
+              ) : null}
             </div>
           ) : null}
 
