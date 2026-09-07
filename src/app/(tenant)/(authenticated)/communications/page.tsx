@@ -38,7 +38,7 @@ export default async function CommunicationsPage() {
       <section className="surface-raised p-6">
         <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Compose SMS</h2>
         <p className="mt-1 text-[15px] text-[var(--gray-600)]">
-          Messages go to guardians' phones. The school name is prepended automatically.
+          Messages go to primary guardian phones. The school name is prepended automatically.
         </p>
         <div className="mt-5">
           <ComposeSmsForm classLevels={classLevels} />
