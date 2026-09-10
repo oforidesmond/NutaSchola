@@ -3,20 +3,23 @@ import type { ThermalPaperWidth } from "./types";
 /** Self-contained styles for thermal receipt (preview + iframe print). */
 export function thermalReceiptCss(paperWidth: ThermalPaperWidth): string {
   const width = paperWidth === "58mm" ? "58mm" : "80mm";
-  const fontSize = paperWidth === "58mm" ? "11px" : "12px";
+  // Slightly larger than screen UI so text stays readable on thermal stock.
+  const fontSize = paperWidth === "58mm" ? "12px" : "14px";
 
   return `
 .thermal-receipt {
   width: ${width};
   max-width: 100%;
   margin: 0 auto;
-  padding: 12px 8px;
+  padding: 8px 6px;
   background: #fff;
   color: #000;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: ${fontSize};
   line-height: 1.35;
   box-sizing: border-box;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 .thermal-receipt *,
 .thermal-receipt *::before,
@@ -79,11 +82,21 @@ export function thermalReceiptCss(paperWidth: ThermalPaperWidth): string {
 `;
 }
 
-export function thermalPrintPageCss(paperWidth: ThermalPaperWidth): string {
+/**
+ * Print CSS sized to the slip. Page height must stay close to content length:
+ * a tall blank page (e.g. 297mm) makes many XP-80C drivers scale the whole
+ * sheet down to fit, so the receipt prints tiny.
+ */
+export function thermalPrintPageCss(
+  paperWidth: ThermalPaperWidth,
+  pageHeightMm: number,
+): string {
+  const heightMm = Math.min(297, Math.max(60, Math.ceil(pageHeightMm)));
+
   return `
 @page {
-  size: ${paperWidth} auto;
-  margin: 2mm;
+  size: ${paperWidth} ${heightMm}mm;
+  margin: 0;
 }
 * {
   -webkit-print-color-adjust: exact;
@@ -92,8 +105,16 @@ export function thermalPrintPageCss(paperWidth: ThermalPaperWidth): string {
 html, body {
   margin: 0;
   padding: 0;
+  width: ${paperWidth};
+  height: auto;
+  overflow: visible;
   background: #fff;
   color: #000;
+}
+.thermal-receipt {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
 }
 ${thermalReceiptCss(paperWidth)}
 `;
