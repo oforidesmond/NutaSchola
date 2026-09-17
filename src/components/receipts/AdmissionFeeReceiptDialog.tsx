@@ -3,9 +3,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/primitives";
-import { AdmissionFeeReceipt } from "@/components/receipts/AdmissionFeeReceipt";
+import { InvoicePaymentReceipt } from "@/components/receipts/AdmissionFeeReceipt";
 import {
-  buildAdmissionFeeReceiptData,
+  buildInvoicePaymentReceiptData,
   paymentSelectLabel,
 } from "@/lib/receipts/build-admission-fee-receipt";
 import {
@@ -15,7 +15,7 @@ import {
 } from "@/lib/receipts/print-thermal";
 import { thermalReceiptCss } from "@/lib/receipts/thermal-receipt-css";
 import type { ReportSchoolBrand } from "@/lib/reports/types";
-import type { ReceiptApplicant, ReceiptPayment, ThermalPaperWidth } from "@/lib/receipts/types";
+import type { ReceiptPayer, ReceiptPayment, ThermalPaperWidth } from "@/lib/receipts/types";
 
 type InvoiceForDialog = {
   invoiceNumber: string;
@@ -23,18 +23,24 @@ type InvoiceForDialog = {
   payments: ReceiptPayment[];
 };
 
-export function AdmissionFeeReceiptDialog({
+export function InvoicePaymentReceiptDialog({
   open,
   onClose,
   school,
-  applicant,
+  payer,
   invoice,
+  title = "ADMISSION FEE RECEIPT",
+  payerLabel = "Applicant",
+  classLabel = "Class",
 }: {
   open: boolean;
   onClose: () => void;
   school: ReportSchoolBrand;
-  applicant: ReceiptApplicant;
+  payer: ReceiptPayer;
   invoice: InvoiceForDialog;
+  title?: string;
+  payerLabel?: string;
+  classLabel?: string;
 }) {
   const titleId = useId();
   const receiptDomId = useId();
@@ -54,9 +60,17 @@ export function AdmissionFeeReceiptDialog({
   const receiptData = useMemo(
     () =>
       paymentId
-        ? buildAdmissionFeeReceiptData({ school, applicant, invoice, paymentId })
+        ? buildInvoicePaymentReceiptData({
+            school,
+            payer,
+            invoice,
+            paymentId,
+            title,
+            payerLabel,
+            classLabel,
+          })
         : null,
-    [school, applicant, invoice, paymentId],
+    [school, payer, invoice, paymentId, title, payerLabel, classLabel],
   );
 
   async function onPrint() {
@@ -136,7 +150,7 @@ export function AdmissionFeeReceiptDialog({
           <div className="rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--gray-50)] py-4">
             <style dangerouslySetInnerHTML={{ __html: thermalReceiptCss(paperWidth) }} />
             {receiptData ? (
-              <AdmissionFeeReceipt id={receiptDomId} data={receiptData} paperWidth={paperWidth} />
+              <InvoicePaymentReceipt id={receiptDomId} data={receiptData} paperWidth={paperWidth} />
             ) : (
               <p className="px-4 text-center text-[15px] text-[var(--gray-600)]">
                 Select a payment to preview the receipt.
@@ -168,5 +182,33 @@ export function AdmissionFeeReceiptDialog({
         </div>
       </div>
     </dialog>
+  );
+}
+
+/** Admission fee dialog — same as InvoicePaymentReceiptDialog with admission defaults. */
+export function AdmissionFeeReceiptDialog({
+  open,
+  onClose,
+  school,
+  applicant,
+  invoice,
+}: {
+  open: boolean;
+  onClose: () => void;
+  school: ReportSchoolBrand;
+  applicant: ReceiptPayer;
+  invoice: InvoiceForDialog;
+}) {
+  return (
+    <InvoicePaymentReceiptDialog
+      open={open}
+      onClose={onClose}
+      school={school}
+      payer={applicant}
+      invoice={invoice}
+      title="ADMISSION FEE RECEIPT"
+      payerLabel="Applicant"
+      classLabel="Class"
+    />
   );
 }

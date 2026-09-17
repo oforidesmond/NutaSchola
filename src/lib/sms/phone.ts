@@ -1,6 +1,7 @@
 /**
  * Normalize Ghana phone numbers to `233XXXXXXXXX` (no plus) for SMS APIs.
- * Accepts common local forms: `0XXXXXXXXX`, `+233…`, `233…`, spaced/dashed.
+ * Accepts: `0XXXXXXXXX`, `+233…`, `233…`, spaced/dashed, and 9-digit
+ * numbers missing a leading `0` (Excel often strips it).
  */
 export function normalizeGhPhone(raw: string): string | null {
   const digits = raw.replace(/[^\d+]/g, "").trim();
@@ -9,6 +10,11 @@ export function normalizeGhPhone(raw: string): string | null {
   let normalized = digits;
   if (normalized.startsWith("+")) {
     normalized = normalized.slice(1);
+  }
+
+  // Excel numeric cells drop the leading 0 from local Ghana numbers.
+  if (normalized.length === 9 && !normalized.startsWith("233")) {
+    normalized = `0${normalized}`;
   }
 
   if (normalized.startsWith("0") && normalized.length === 10) {

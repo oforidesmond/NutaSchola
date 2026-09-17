@@ -38,6 +38,8 @@ type ApplicationBio = {
   rejectionReason: string | null;
   decisionNotes: string | null;
   convertedStudent: { id: string; admissionNumber: string } | null;
+  admissionFeeWaived: boolean;
+  admissionFeeWaivedReason: string | null;
 };
 
 type StatusHistoryRow = {
@@ -76,6 +78,7 @@ export function ApplicationWorkspace({
     canStage: boolean;
     canDocuments: boolean;
     canFees: boolean;
+    canWaive: boolean;
     canConvertAction: boolean;
   };
 }) {
@@ -83,8 +86,8 @@ export function ApplicationWorkspace({
     stage: application.stage,
     guardianCount: guardians.length,
     uploadedDocumentTypes: documents.map((d) => d.type),
-    hasInvoice: Boolean(invoice),
-    amountPaid: invoice ? Number(invoice.amountPaid) : 0,
+    hasInvoice: Boolean(invoice) || application.admissionFeeWaived,
+    amountPaid: invoice ? Number(invoice.amountPaid) : application.admissionFeeWaived ? 1 : 0,
     canConvert: canConvert && permissions.canConvertAction,
     alreadyConverted,
     convertBlockedReason,
@@ -126,6 +129,10 @@ export function ApplicationWorkspace({
           applicant={applicant}
           emphasized={nextAction.focus === "fee"}
           readOnly={!permissions.canFees}
+          canWaive={permissions.canWaive}
+          admissionFeeWaived={application.admissionFeeWaived}
+          admissionFeeWaivedReason={application.admissionFeeWaivedReason}
+          alreadyConverted={alreadyConverted}
         />
       </div>
 

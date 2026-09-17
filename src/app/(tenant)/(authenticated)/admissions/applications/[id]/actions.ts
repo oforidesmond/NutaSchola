@@ -18,9 +18,10 @@ import { convertApplicantToStudent } from "@/lib/admissions/convert";
 import { nextAdmissionNumber } from "@/lib/admissions/numbering";
 import { findOrCreateGuardian, linkGuardianToApplication } from "@/lib/admissions/guardians";
 import { notifyStageChange, notifyAdmissionFeeDue, notifyAdmissionFeePayment, notifyAdmissionFeeArrears } from "@/lib/admissions/notify";
-import { resolvePrimaryGuardianContact } from "@/lib/sms";
+import { resolvePrimaryGuardianContact, normalizeGhPhone } from "@/lib/sms";
 import { PAYMENT_METHOD_LABELS } from "@/lib/admissions/labels";
 import { feeOutstanding } from "@/lib/admissions/fees";
+import { generateSchoolFeesInvoice, recordInvoicePayment } from "@/lib/fees";
 
 function fieldErrorsFromZod(error: z.ZodError): Record<string, string[]> {
   const fieldErrors: Record<string, string[]> = {};
@@ -166,12 +167,30 @@ export async function addGuardianToApplication(
     const application = await loadApplicationOrThrow(tenant.schoolId, parsed.data.applicationId);
     const data = parsed.data;
 
+    const phone = normalizeGhPhone(data.phone);
+    if (!phone) {
+      return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", {
+        phone: ["Invalid Ghana phone number"],
+      });
+    }
+
+    let altPhone: string | undefined;
+    if (data.altPhone?.trim()) {
+      const normalizedAlt = normalizeGhPhone(data.altPhone);
+      if (!normalizedAlt) {
+        return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", {
+          altPhone: ["Invalid Ghana phone number"],
+        });
+      }
+      altPhone = normalizedAlt;
+    }
+
     const guardianId = await prisma.$transaction(async (tx) => {
       const guardian = await findOrCreateGuardian(tx, tenant.schoolId, {
         firstName: data.firstName,
         lastName: data.lastName,
-        phone: data.phone,
-        altPhone: data.altPhone,
+        phone,
+        altPhone,
         email: data.email,
         occupation: data.occupation,
         address: data.address,
@@ -311,6 +330,13 @@ export async function generateAdmissionFeeInvoiceAction(
     const { tenant } = await requireAction(ACTIONS.ADMISSIONS_FEES);
     const application = await loadApplicationOrThrow(tenant.schoolId, applicationId);
 
+    if (application.admissionFeeWaived) {
+      return fail(
+        "FEE_WAIVED",
+        "Admission fee is waived for this application — no invoice will be generated.",
+      );
+    }
+
     if (application.admissionFeeInvoiceId) {
       return fail(
         "ALREADY_EXISTS",
@@ -322,13 +348,13 @@ export async function generateAdmissionFeeInvoiceAction(
       (await prisma.feeStructure.findFirst({
         where: {
           schoolId: tenant.schoolId,
-          isAdmissionFee: true,
+          feeType: "ADMISSION",
           classLevelId: application.classLevelAppliedId,
         },
         include: { items: true },
       })) ??
       (await prisma.feeStructure.findFirst({
-        where: { schoolId: tenant.schoolId, isAdmissionFee: true, classLevelId: null },
+        where: { schoolId: tenant.schoolId, feeType: "ADMISSION", classLevelId: null },
         include: { items: true },
       }));
 
@@ -429,56 +455,86 @@ export async function recordAdmissionFeePaymentAction(
 
     const invoice = application.admissionFeeInvoice;
     const total = Number(invoice.totalAmount.toString());
-    const alreadyPaid = Number(invoice.amountPaid.toString());
-    const balance = total - alreadyPaid;
-    const amount = Number(parsed.data.amount.toFixed(2));
+    const method = parsed.data.method as PaymentMethod;
 
-    if (balance <= 0) {
-      return fail("ALREADY_PAID", "This invoice is already fully paid.");
-    }
-    if (amount > balance) {
-      return fail(
-        "AMOUNT_EXCEEDS_BALANCE",
-        `Amount exceeds the outstanding balance of GHS ${balance.toFixed(2)}.`,
-      );
-    }
+    const recorded = await prisma.$transaction(async (tx) =>
+      recordInvoicePayment(tx, {
+        schoolId: tenant.schoolId,
+        invoiceId: invoice.id,
+        totalAmount: invoice.totalAmount,
+        amountPaid: invoice.amountPaid,
+        paymentAmount: parsed.data.amount,
+        method,
+        reference: parsed.data.reference,
+        receiptPrefix: "ADM",
+      }),
+    );
 
-    await prisma.$transaction(async (tx) => {
-      await tx.payment.create({
-        data: {
-          schoolId: tenant.schoolId,
-          invoiceId: invoice.id,
-          amount: amount.toFixed(2),
-          method: parsed.data.method as PaymentMethod,
-          status: "SUCCESSFUL",
-          reference: parsed.data.reference?.trim() || null,
-          paidAt: new Date(),
-        },
-      });
-
-      const newPaid = alreadyPaid + amount;
-      const newStatus = newPaid >= total ? "PAID" : "PARTIALLY_PAID";
-
-      await tx.invoice.update({
-        where: { id: invoice.id },
-        data: { amountPaid: newPaid.toFixed(2), status: newStatus },
-      });
-    });
-
-    const newPaid = alreadyPaid + amount;
-    const outstanding = Math.max(0, total - newPaid);
+    const outstanding = Math.max(0, total - recorded.newPaid);
     const settings = await prisma.schoolSettings.findUnique({ where: { schoolId: tenant.schoolId } });
     const guardian = await resolvePrimaryGuardianContact(application.id);
-    const method = parsed.data.method as PaymentMethod;
     await notifyAdmissionFeePayment({
       schoolId: tenant.schoolId,
       schoolName: tenant.school.name,
       enableSmsNotifications: settings?.enableSmsNotifications ?? false,
       guardian,
       applicantName: `${application.firstName} ${application.lastName}`,
-      amountPaid: amount.toFixed(2),
+      amountPaid: recorded.amount.toFixed(2),
       methodLabel: PAYMENT_METHOD_LABELS[method] ?? method,
       outstanding: outstanding.toFixed(2),
+    });
+
+    revalidateApplication(application.id);
+    return ok({ saved: true });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
+const waiverSchema = z.object({
+  applicationId: z.string().min(1),
+  waived: z.enum(["true", "false"]),
+  reason: z.string().optional(),
+});
+
+export async function updateAdmissionFeeWaiverAction(
+  formData: FormData,
+): Promise<ActionResult<{ saved: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.FEES_WAIVE);
+    const parsed = waiverSchema.safeParse({
+      applicationId: formData.get("applicationId"),
+      waived: formData.get("waived") === "true" ? "true" : "false",
+      reason: (formData.get("reason") as string) || undefined,
+    });
+    if (!parsed.success) {
+      return fail(
+        "VALIDATION_ERROR",
+        "Please fix the highlighted fields.",
+        fieldErrorsFromZod(parsed.error),
+      );
+    }
+
+    const application = await loadApplicationOrThrow(
+      tenant.schoolId,
+      parsed.data.applicationId,
+    );
+    if (application.convertedStudentId) {
+      return fail(
+        "ALREADY_CONVERTED",
+        "Cannot change the admission fee waiver after conversion.",
+      );
+    }
+
+    const waived = parsed.data.waived === "true";
+    await prisma.admissionApplication.update({
+      where: { id: application.id },
+      data: {
+        admissionFeeWaived: waived,
+        admissionFeeWaivedReason: waived
+          ? parsed.data.reason?.trim() || null
+          : null,
+      },
     });
 
     revalidateApplication(application.id);
@@ -571,7 +627,25 @@ export async function convertApplicationAction(
       });
     });
 
+    const currentTerm = await prisma.term.findFirst({
+      where: { schoolId: tenant.schoolId, isCurrent: true },
+      select: { id: true },
+    });
+    if (currentTerm) {
+      try {
+        await generateSchoolFeesInvoice(prisma, {
+          schoolId: tenant.schoolId,
+          studentId: student.id,
+          termId: currentTerm.id,
+        });
+      } catch (error) {
+        // Conversion succeeded; school-fees invoice can be generated later from student fees page.
+        console.error("generateSchoolFeesInvoice_after_convert", error);
+      }
+    }
+
     revalidateApplication(applicationId);
+    revalidatePath(`/students/${student.id}/fees`);
     return ok({ studentId: student.id });
   } catch (error) {
     return fail(...toFailArgs(error));

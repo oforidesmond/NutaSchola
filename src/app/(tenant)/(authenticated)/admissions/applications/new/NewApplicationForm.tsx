@@ -29,6 +29,7 @@ export function NewApplicationForm({
   defaultAcademicYearId: string;
 }) {
   const router = useRouter();
+  const [intakeType, setIntakeType] = useState<"NEW" | "EXISTING">("NEW");
   const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
@@ -110,6 +111,7 @@ export function NewApplicationForm({
 
   return (
     <form onSubmit={onSubmit} className="flex max-w-4xl flex-col gap-6">
+      <input type="hidden" name="intakeType" value={intakeType} />
       <nav aria-label="Application steps" className="surface-raised px-4 py-3 sm:px-5">
         <ol className="flex flex-wrap items-center gap-2 sm:gap-4">
           {STEPS.map((s, index) => {
@@ -155,6 +157,34 @@ export function NewApplicationForm({
 
       <section className={`surface-raised p-6 ${step === 1 ? "" : "hidden"}`} aria-hidden={step !== 1}>
         <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">Applicant bio-data</h2>
+        <fieldset className="mt-4">
+          <legend className="text-[15px] font-medium text-[var(--gray-800)]">Intake type</legend>
+          <div className="mt-2 flex flex-wrap gap-4 text-[15px]">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="intakeTypeRadio"
+                checked={intakeType === "NEW"}
+                onChange={() => setIntakeType("NEW")}
+              />
+              New admission
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="intakeTypeRadio"
+                checked={intakeType === "EXISTING"}
+                onChange={() => setIntakeType("EXISTING")}
+              />
+              Existing student
+            </label>
+          </div>
+          {intakeType === "EXISTING" ? (
+            <p className="mt-2 text-[14px] text-[var(--gray-600)]">
+              Admission fee will be pre-waived. You can change the waiver if needed.
+            </p>
+          ) : null}
+        </fieldset>
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
           <Input label="First name" name="firstName" required={step === 1} error={fieldError("firstName")} />
           <Input label="Middle name" name="middleName" />
@@ -281,10 +311,10 @@ export function NewApplicationForm({
             label="Phone"
             name="guardianPhone"
             required={step === 3}
-            placeholder="+233…"
+            placeholder="05… or +233…"
             error={fieldError("guardianPhone")}
           />
-          <Input label="Alternate phone" name="guardianAltPhone" placeholder="+233…" />
+          <Input label="Alternate phone" name="guardianAltPhone" placeholder="05… or +233…" />
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Input

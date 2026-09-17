@@ -117,8 +117,8 @@ export function GuardiansPanel({
             <Input label="Last name" name="lastName" required error={fieldError("lastName")} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Phone" name="phone" required placeholder="+233…" error={fieldError("phone")} />
-            <Input label="Alternate phone" name="altPhone" placeholder="+233…" />
+            <Input label="Phone" name="phone" required placeholder="05… or +233…" error={fieldError("phone")} />
+            <Input label="Alternate phone" name="altPhone" placeholder="05… or +233…" />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Email (optional)" name="email" type="email" error={fieldError("email")} />

@@ -79,13 +79,15 @@ export async function convertApplicantToStudent(
     );
   }
 
-  if (
-    !application.admissionFeeInvoice ||
-    !invoiceHasAnyPayment(application.admissionFeeInvoice)
-  ) {
+  const feeSatisfied =
+    application.admissionFeeWaived ||
+    (application.admissionFeeInvoice != null &&
+      invoiceHasAnyPayment(application.admissionFeeInvoice));
+
+  if (!feeSatisfied) {
     throw new AppError(
       "FEE_UNPAID",
-      "At least one payment must be recorded against the admission fee invoice before converting to a student.",
+      "At least one payment must be recorded against the admission fee invoice before converting to a student (or waive the admission fee).",
       { status: 400 },
     );
   }

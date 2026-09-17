@@ -29,6 +29,7 @@ export default async function ApplicationDetailPage({
     canStage: can(user.role, ACTIONS.ADMISSIONS_STAGE),
     canDocuments: can(user.role, ACTIONS.ADMISSIONS_DOCUMENTS),
     canFees: can(user.role, ACTIONS.ADMISSIONS_FEES),
+    canWaive: can(user.role, ACTIONS.FEES_WAIVE),
     canConvertAction: can(user.role, ACTIONS.ADMISSIONS_CONVERT),
   };
 
@@ -45,7 +46,10 @@ export default async function ApplicationDetailPage({
       admissionFeeInvoice: {
         include: {
           items: true,
-          payments: { orderBy: { createdAt: "desc" } },
+          payments: {
+            orderBy: { createdAt: "desc" },
+            include: { receipt: { select: { receiptNumber: true } } },
+          },
         },
       },
       convertedStudent: { select: { id: true, admissionNumber: true } },
@@ -67,16 +71,17 @@ export default async function ApplicationDetailPage({
   const feeHasPayment = application.admissionFeeInvoice
     ? invoiceHasAnyPayment(application.admissionFeeInvoice)
     : false;
+  const feeSatisfied = application.admissionFeeWaived || feeHasPayment;
   const eligibleStage = canConvertFromStage(application.stage);
-  const canConvert = !alreadyConverted && eligibleStage && feeHasPayment;
+  const canConvert = !alreadyConverted && eligibleStage && feeSatisfied;
 
   let convertBlockedReason: string | null = null;
   if (!alreadyConverted) {
     if (!eligibleStage) {
       convertBlockedReason = "Applicant must be Admitted before conversion.";
-    } else if (!feeHasPayment) {
+    } else if (!feeSatisfied) {
       convertBlockedReason =
-        "Record at least one payment against the admission fee invoice before conversion.";
+        "Record at least one admission fee payment, or waive the admission fee, before conversion.";
     }
   }
 
@@ -139,6 +144,8 @@ export default async function ApplicationDetailPage({
           rejectionReason: application.rejectionReason,
           decisionNotes: application.decisionNotes,
           convertedStudent: application.convertedStudent,
+          admissionFeeWaived: application.admissionFeeWaived,
+          admissionFeeWaivedReason: application.admissionFeeWaivedReason,
         }}
         guardians={application.guardians.map((g) => ({
           applicationGuardianId: g.id,
@@ -184,6 +191,7 @@ export default async function ApplicationDetailPage({
                   method: p.method,
                   reference: p.reference,
                   paidAt: p.paidAt ? p.paidAt.toISOString() : null,
+                  receiptNumber: p.receipt?.receiptNumber ?? null,
                 })),
               }
             : null
@@ -191,7 +199,7 @@ export default async function ApplicationDetailPage({
         school={school}
         applicant={{
           fullName,
-          classLevelAppliedName: application.classLevelApplied.name,
+          classLevelName: application.classLevelApplied.name,
         }}
         canConvert={canConvert}
         convertBlockedReason={convertBlockedReason}

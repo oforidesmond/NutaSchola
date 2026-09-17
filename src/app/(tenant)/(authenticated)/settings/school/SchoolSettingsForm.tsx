@@ -98,7 +98,7 @@ export function SchoolSettingsForm({
               label="Contact phone"
               name="contactPhone"
               defaultValue={school.contactPhone ?? ""}
-              placeholder="+233…"
+              placeholder="05… or +233…"
               disabled={readOnly}
             />
           </div>

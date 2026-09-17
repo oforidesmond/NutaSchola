@@ -233,7 +233,7 @@ export async function seedSchoolStructure(
   }
 
   const admissionFee = await prisma.feeStructure.findFirst({
-    where: { schoolId: school.id, isAdmissionFee: true },
+    where: { schoolId: school.id, feeType: "ADMISSION" },
   });
 
   if (!admissionFee) {
@@ -241,7 +241,7 @@ export async function seedSchoolStructure(
       data: {
         schoolId: school.id,
         name: "Admission Fee",
-        isAdmissionFee: true,
+        feeType: "ADMISSION",
         items: {
           create: [
             {
@@ -252,6 +252,46 @@ export async function seedSchoolStructure(
         },
       },
     });
+  }
+
+  const currentTerm = await prisma.term.findFirst({
+    where: { schoolId: school.id, isCurrent: true },
+  });
+  const classLevels = await prisma.classLevel.findMany({
+    where: { schoolId: school.id },
+    orderBy: { order: "asc" },
+  });
+
+  if (currentTerm) {
+    for (const level of classLevels) {
+      const existing = await prisma.feeStructure.findFirst({
+        where: {
+          schoolId: school.id,
+          feeType: "SCHOOL_FEES",
+          termId: currentTerm.id,
+          classLevelId: level.id,
+        },
+      });
+      if (!existing) {
+        await prisma.feeStructure.create({
+          data: {
+            schoolId: school.id,
+            name: `School Fees — ${currentTerm.name} — ${level.name} (edit me)`,
+            feeType: "SCHOOL_FEES",
+            termId: currentTerm.id,
+            classLevelId: level.id,
+            items: {
+              create: [
+                {
+                  name: "Tuition (Default description — edit in Settings → Fees)",
+                  amount: new Decimal("500.00"),
+                },
+              ],
+            },
+          },
+        });
+      }
+    }
   }
 
   return school;

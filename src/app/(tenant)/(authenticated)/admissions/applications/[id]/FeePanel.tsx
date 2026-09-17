@@ -12,7 +12,12 @@ import { feeOutstanding } from "@/lib/admissions/fees";
 import { formatDateAccra, formatGhs } from "@/lib/format/currency";
 import type { ReportSchoolBrand } from "@/lib/reports/types";
 import type { ReceiptApplicant } from "@/lib/receipts/types";
-import { generateAdmissionFeeInvoiceAction, recordAdmissionFeePaymentAction, sendAdmissionFeeArrearsReminderAction } from "./actions";
+import {
+  generateAdmissionFeeInvoiceAction,
+  recordAdmissionFeePaymentAction,
+  sendAdmissionFeeArrearsReminderAction,
+  updateAdmissionFeeWaiverAction,
+} from "./actions";
 
 export type InvoiceView = {
   id: string;
@@ -27,10 +32,14 @@ export type InvoiceView = {
     method: PaymentMethod;
     reference: string | null;
     paidAt: string | null;
+    receiptNumber?: string | null;
   }[];
 } | null;
 
-const INVOICE_STATUS_TONE: Record<InvoiceStatus, "neutral" | "info" | "success" | "warning" | "error"> = {
+const INVOICE_STATUS_TONE: Record<
+  InvoiceStatus,
+  "neutral" | "info" | "success" | "warning" | "error"
+> = {
   DRAFT: "neutral",
   ISSUED: "info",
   PARTIALLY_PAID: "warning",
@@ -47,6 +56,10 @@ export function FeePanel({
   applicant,
   emphasized = false,
   readOnly = false,
+  canWaive = false,
+  admissionFeeWaived = false,
+  admissionFeeWaivedReason = null,
+  alreadyConverted = false,
 }: {
   applicationId: string;
   invoice: InvoiceView;
@@ -54,6 +67,10 @@ export function FeePanel({
   applicant: ReceiptApplicant;
   emphasized?: boolean;
   readOnly?: boolean;
+  canWaive?: boolean;
+  admissionFeeWaived?: boolean;
+  admissionFeeWaivedReason?: string | null;
+  alreadyConverted?: boolean;
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +78,7 @@ export function FeePanel({
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [arrearsConfirmOpen, setArrearsConfirmOpen] = useState(false);
+  const [waiverReason, setWaiverReason] = useState(admissionFeeWaivedReason ?? "");
   const [pendingSummary, setPendingSummary] = useState<{
     amount: string;
     method: PaymentMethod;
@@ -82,6 +100,25 @@ export function FeePanel({
       return;
     }
     setMessage("Admission fee invoice generated.");
+  }
+
+  async function onToggleWaiver(waived: boolean) {
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    const formData = new FormData();
+    formData.set("applicationId", applicationId);
+    formData.set("waived", waived ? "true" : "false");
+    if (waived && waiverReason.trim()) {
+      formData.set("reason", waiverReason.trim());
+    }
+    const result = await updateAdmissionFeeWaiverAction(formData);
+    setLoading(false);
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+    setMessage(waived ? "Admission fee waived." : "Admission fee waiver removed.");
   }
 
   function onRecordPayment(event: FormEvent<HTMLFormElement>) {
@@ -162,12 +199,61 @@ export function FeePanel({
         </p>
       ) : null}
 
-      {!invoice ? (
+      {canWaive && !alreadyConverted ? (
+        <div className="mt-4 rounded-[var(--radius-sm)] border border-[var(--gray-100)] bg-[var(--gray-50)] p-4">
+          <label className="flex items-start gap-3 text-[15px] text-[var(--gray-800)]">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={admissionFeeWaived}
+              disabled={loading}
+              onChange={(e) => void onToggleWaiver(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium">Waive admission fee</span>
+              <span className="mt-0.5 block text-[14px] text-[var(--gray-600)]">
+                When waived, no invoice is required to convert this applicant.
+              </span>
+            </span>
+          </label>
+          <div className="mt-3">
+            <Input
+              label="Waiver reason (optional)"
+              value={waiverReason}
+              onChange={(e) => setWaiverReason(e.target.value)}
+              disabled={loading}
+              placeholder="e.g. Existing student re-enrollment"
+            />
+            {admissionFeeWaived ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="mt-2"
+                loading={loading}
+                onClick={() => void onToggleWaiver(true)}
+              >
+                Save reason
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : admissionFeeWaived ? (
+        <p className="mt-4 rounded-[var(--radius-sm)] bg-[var(--success-50)] px-3 py-2 text-[15px] text-[var(--success-700)]">
+          Admission fee waived
+          {admissionFeeWaivedReason ? ` — ${admissionFeeWaivedReason}` : ""}.
+        </p>
+      ) : null}
+
+      {admissionFeeWaived && !invoice ? (
+        <p className="mt-4 text-[15px] text-[var(--gray-600)]">
+          No admission fee invoice will be generated while the fee is waived.
+        </p>
+      ) : !invoice ? (
         <div className="mt-4 flex flex-col gap-3">
           <p className="text-[15px] text-[var(--gray-600)]">
             No admission fee invoice has been generated for this application yet.
           </p>
-          {!readOnly ? (
+          {!readOnly && !admissionFeeWaived ? (
             <Button type="button" loading={loading} onClick={onGenerateInvoice} className="self-start">
               Generate admission fee invoice
             </Button>
@@ -183,7 +269,7 @@ export function FeePanel({
             />
           </div>
 
-          {invoice ? <FeeProgress amounts={invoice} className="mt-1" /> : null}
+          <FeeProgress amounts={invoice} className="mt-1" />
 
           <ul className="divide-y divide-[var(--gray-100)] rounded-[var(--radius-sm)] border border-[var(--gray-100)]">
             {invoice.items.map((item) => (
@@ -237,6 +323,7 @@ export function FeePanel({
                 {invoice.payments.map((p) => (
                   <li key={p.id} className="flex items-center justify-between py-2 text-[15px]">
                     <span className="text-[var(--gray-700)]">
+                      {p.receiptNumber ? `${p.receiptNumber} · ` : ""}
                       {PAYMENT_METHOD_LABELS[p.method]}
                       {p.reference ? ` · ${p.reference}` : ""}
                       {p.paidAt ? ` · ${formatDateAccra(p.paidAt)}` : ""}
@@ -270,45 +357,45 @@ export function FeePanel({
               >
                 Send arrears reminder SMS
               </Button>
-            <form
-              ref={paymentFormRef}
-              onSubmit={onRecordPayment}
-              className="flex flex-col gap-4"
-            >
-              <input type="hidden" name="applicationId" value={applicationId} />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Input
-                  label="Amount (GHS)"
-                  name="amount"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  max={balance}
-                  defaultValue={balance.toFixed(2)}
-                  required
-                  className="font-variant-numeric tabular-nums"
-                />
-                <label className="flex flex-col gap-2">
-                  <span className="text-[15px] font-medium text-[var(--gray-800)]">Method</span>
-                  <select
-                    name="method"
+              <form
+                ref={paymentFormRef}
+                onSubmit={onRecordPayment}
+                className="flex flex-col gap-4"
+              >
+                <input type="hidden" name="applicationId" value={applicationId} />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input
+                    label="Amount (GHS)"
+                    name="amount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={balance}
+                    defaultValue={balance.toFixed(2)}
                     required
-                    defaultValue="CASH"
-                    className="min-h-11 rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] px-3 text-base"
-                  >
-                    {ADMISSION_PAYMENT_METHODS.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <Input label="Reference (optional)" name="reference" placeholder="Receipt / MoMo ref." />
-              <Button type="submit" loading={loading} className="self-start">
-                Record payment
-              </Button>
-            </form>
+                    className="font-variant-numeric tabular-nums"
+                  />
+                  <label className="flex flex-col gap-2">
+                    <span className="text-[15px] font-medium text-[var(--gray-800)]">Method</span>
+                    <select
+                      name="method"
+                      required
+                      defaultValue="CASH"
+                      className="min-h-11 rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] px-3 text-base"
+                    >
+                      {ADMISSION_PAYMENT_METHODS.map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <Input label="Reference (optional)" name="reference" placeholder="Receipt / MoMo ref." />
+                <Button type="submit" loading={loading} className="self-start">
+                  Record payment
+                </Button>
+              </form>
             </div>
           ) : balance > 0 && readOnly ? (
             <p className="text-[15px] text-[var(--gray-600)]">

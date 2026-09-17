@@ -51,6 +51,12 @@ export function ConvertPanel({
             </span>
             .
           </p>
+          <a
+            href={`/students/${convertedStudent.id}/fees`}
+            className="text-[15px] font-medium text-[var(--brand-700)] underline-offset-2 hover:underline"
+          >
+            View school fees
+          </a>
         </div>
       </section>
     );
@@ -74,7 +80,7 @@ export function ConvertPanel({
       <div className="mt-3 flex flex-col gap-3">
         <p className="text-[15px] text-[var(--gray-600)]">
           Creates a Student record and current-year Enrollment, then locks the application at
-          Enrolled. Requires Admitted stage with at least one payment on the admission fee invoice.
+          Enrolled. Requires Admitted stage and either an admission fee payment or a fee waiver.
         </p>
         {!canConvert && convertBlockedReason ? (
           <p className="rounded-[var(--radius-sm)] bg-[var(--warning-50)] px-3 py-2 text-[15px] text-[#8a4a0c]">

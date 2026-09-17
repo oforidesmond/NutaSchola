@@ -156,6 +156,17 @@ enum EnrollmentStatus {
   SUSPENDED
 }
 
+enum FeeType {
+  ADMISSION
+  SCHOOL_FEES
+}
+
+enum ReceiptPrefix {
+  ADM
+  FEE
+  STN
+}
+
 enum InvoiceStatus {
   DRAFT
   ISSUED
@@ -263,6 +274,9 @@ model School {
   feeStructures         FeeStructure[]
   invoices              Invoice[]
   payments              Payment[]
+  receipts              Receipt[]
+  stationeryItems       StationeryItem[]
+  stationerySales       StationerySale[]
   attendanceRecords     AttendanceRecord[]
   exams                 Exam[]
   examResults           ExamResult[]
@@ -281,6 +295,8 @@ model SchoolSettings {
   admissionNumberNextSeq   Int      @default(1)
   applicationNumberPrefix  String   @default("APP")
   applicationNumberNextSeq Int      @default(1)
+  /// Shared counter for ADM-/FEE-/STN- receipt numbers (one sequence per school).
+  receiptNextSeq           Int      @default(1)
   enableOnlineApplication  Boolean  @default(true)
   enableSmsNotifications   Boolean  @default(false)
   enableEmailNotifications Boolean  @default(true)
@@ -344,6 +360,7 @@ model User {
   guardianProfile      Guardian?
   assignedApplications AdmissionApplication[] @relation("AssignedOfficer")
   announcementsCreated Announcement[]
+  stationerySalesRecorded StationerySale[] @relation("StationerySaleRecorder")
   auditLogs            AuditLog[]
   accounts             Account[]
   sessions             Session[]
@@ -438,6 +455,7 @@ model Term {
   isCurrent      Boolean      @default(false)
 
   invoices          Invoice[]
+  feeStructures     FeeStructure[]
   attendanceRecords AttendanceRecord[]
   exams             Exam[]
 
@@ -557,6 +575,10 @@ model AdmissionApplication {
   admissionFeeInvoiceId String?  @unique
   admissionFeeInvoice   Invoice? @relation(fields: [admissionFeeInvoiceId], references: [id])
 
+  /// Per-application waiver — when true, no admission invoice is required to convert.
+  admissionFeeWaived       Boolean @default(false)
+  admissionFeeWaivedReason String?
+
   convertedStudentId String?  @unique
   convertedStudent   Student? @relation(fields: [convertedStudentId], references: [id])
 
@@ -650,6 +672,7 @@ model Student {
   enrollments          Enrollment[]
   admissionApplication AdmissionApplication?
   invoices             Invoice[]
+  stationerySales      StationerySale[]
   attendanceRecords    AttendanceRecord[]
   examResults          ExamResult[]
 
@@ -715,19 +738,24 @@ model Document {
 // ============================================================================
 
 model FeeStructure {
-  id             String      @id @default(cuid())
-  schoolId       String
-  school         School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  name           String      // "Admission Fee", "Term 1 Fees — Primary"
-  classLevelId   String?
-  classLevel     ClassLevel? @relation(fields: [classLevelId], references: [id])
-  isAdmissionFee Boolean     @default(false)
-  createdAt      DateTime    @default(now())
+  id           String      @id @default(cuid())
+  schoolId     String
+  school       School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name         String // "Admission Fee", "Term 1 Fees — Primary 1"
+  feeType      FeeType
+  /// Required for SCHOOL_FEES at the app layer; null for ADMISSION.
+  termId       String?
+  term         Term?       @relation(fields: [termId], references: [id])
+  /// Null = default for all class levels; a level-specific row overrides for that level.
+  classLevelId String?
+  classLevel   ClassLevel? @relation(fields: [classLevelId], references: [id])
+  createdAt    DateTime    @default(now())
 
   items    FeeItem[]
   invoices Invoice[]
 
   @@index([schoolId])
+  @@index([schoolId, feeType, termId, classLevelId])
 }
 
 model FeeItem {
@@ -788,11 +816,86 @@ model Payment {
   amount    Decimal       @db.Decimal(10, 2)
   method    PaymentMethod
   status    PaymentStatus @default(PENDING)
-  reference String?       // gateway transaction ref (Paystack/Hubtel)
+  reference String? // gateway transaction ref (Paystack/Hubtel)
   paidAt    DateTime?
   createdAt DateTime      @default(now())
 
+  receiptId String?  @unique
+  receipt   Receipt? @relation(fields: [receiptId], references: [id])
+
   @@index([schoolId, invoiceId])
+}
+
+/// Persisted receipt numbers: one global per-school sequence, prefixed by type (ADM/FEE/STN).
+model Receipt {
+  id            String        @id @default(cuid())
+  schoolId      String
+  school        School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  prefix        ReceiptPrefix
+  seq           Int
+  receiptNumber String // e.g. ADM-000123
+  createdAt     DateTime      @default(now())
+
+  payment        Payment?
+  stationerySale StationerySale?
+
+  @@unique([schoolId, receiptNumber])
+  @@index([schoolId, prefix])
+}
+
+// ============================================================================
+// STATIONERY SALES
+// ============================================================================
+
+model StationeryItem {
+  id            String   @id @default(cuid())
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name          String
+  unitPrice     Decimal  @db.Decimal(10, 2)
+  stockQuantity Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  saleLines StationerySaleLine[]
+
+  @@index([schoolId, isActive])
+}
+
+model StationerySale {
+  id          String        @id @default(cuid())
+  schoolId    String
+  school      School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId   String?
+  student     Student?      @relation(fields: [studentId], references: [id])
+  totalAmount Decimal       @db.Decimal(10, 2)
+  amountPaid  Decimal       @db.Decimal(10, 2)
+  method      PaymentMethod
+  recordedById String
+  recordedBy  User          @relation("StationerySaleRecorder", fields: [recordedById], references: [id])
+  receiptId   String?       @unique
+  receipt     Receipt?      @relation(fields: [receiptId], references: [id])
+  createdAt   DateTime      @default(now())
+
+  lines StationerySaleLine[]
+
+  @@index([schoolId, createdAt])
+}
+
+model StationerySaleLine {
+  id         String         @id @default(cuid())
+  saleId     String
+  sale       StationerySale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  itemId     String?
+  item       StationeryItem? @relation(fields: [itemId], references: [id])
+  /// Snapshot at sale time — do not rely on live item price/name.
+  name       String
+  unitPrice  Decimal        @db.Decimal(10, 2)
+  quantity   Int
+  lineTotal  Decimal        @db.Decimal(10, 2)
+
+  @@index([saleId])
 }
 
 // ============================================================================

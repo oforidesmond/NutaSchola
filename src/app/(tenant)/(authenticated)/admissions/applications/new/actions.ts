@@ -10,6 +10,7 @@ import { fail, ok, toActionError, type ActionResult } from "@/lib/errors";
 import { nextApplicationNumber } from "@/lib/admissions/numbering";
 import { findOrCreateGuardian, linkGuardianToApplication } from "@/lib/admissions/guardians";
 import { recordStageChange } from "@/lib/admissions/history";
+import { normalizeGhPhone } from "@/lib/sms/phone";
 
 function fieldErrorsFromZod(error: z.ZodError): Record<string, string[]> {
   const fieldErrors: Record<string, string[]> = {};
@@ -26,6 +27,7 @@ function toFailArgs(error: unknown): [string, string, Record<string, string[]>?]
 }
 
 const intakeSchema = z.object({
+  intakeType: z.enum(["NEW", "EXISTING"]).default("NEW"),
   firstName: z.string().min(1, "First name is required"),
   middleName: z.string().optional(),
   lastName: z.string().min(1, "Last name is required"),
@@ -60,6 +62,7 @@ export async function createApplication(
     const { tenant, user } = await requireAction(ACTIONS.ADMISSIONS_CREATE);
 
     const parsed = intakeSchema.safeParse({
+      intakeType: formData.get("intakeType") === "EXISTING" ? "EXISTING" : "NEW",
       firstName: formData.get("firstName"),
       middleName: formData.get("middleName") || undefined,
       lastName: formData.get("lastName"),
@@ -92,6 +95,25 @@ export async function createApplication(
     }
 
     const data = parsed.data;
+    const existingStudent = data.intakeType === "EXISTING";
+
+    const guardianPhone = normalizeGhPhone(data.guardianPhone);
+    if (!guardianPhone) {
+      return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", {
+        guardianPhone: ["Invalid Ghana phone number"],
+      });
+    }
+
+    let guardianAltPhone: string | undefined;
+    if (data.guardianAltPhone?.trim()) {
+      const normalizedAlt = normalizeGhPhone(data.guardianAltPhone);
+      if (!normalizedAlt) {
+        return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", {
+          guardianAltPhone: ["Invalid Ghana phone number"],
+        });
+      }
+      guardianAltPhone = normalizedAlt;
+    }
 
     const [classLevel, academicYear] = await Promise.all([
       prisma.classLevel.findFirst({
@@ -135,14 +157,18 @@ export async function createApplication(
           source: data.source,
           stage: "APPLICATION_SUBMITTED",
           assignedOfficerId: user.id,
+          admissionFeeWaived: existingStudent,
+          admissionFeeWaivedReason: existingStudent
+            ? "Existing student intake"
+            : null,
         },
       });
 
       const guardian = await findOrCreateGuardian(tx, tenant.schoolId, {
         firstName: data.guardianFirstName,
         lastName: data.guardianLastName,
-        phone: data.guardianPhone,
-        altPhone: data.guardianAltPhone,
+        phone: guardianPhone,
+        altPhone: guardianAltPhone,
         email: data.guardianEmail,
         occupation: data.guardianOccupation,
         address: data.guardianAddress,

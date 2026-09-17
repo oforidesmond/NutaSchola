@@ -357,3 +357,113 @@ Adds Ghana SMS notifications via ebits (Arkesel-compatible), gated by `SchoolSet
 1. Leave `SMS_PROVIDER=noop`, enable SMS in School settings → record payment / compose → check server logs + `NotificationLog`.
 2. Set `SMS_PROVIDER=ebits` with approved sender ID → test Compose to a staff phone.
 3. With SMS toggle off, no provider calls.
+
+---
+
+## 2026-09-16 — Phase 4A (Fee generalization + shared receipts)
+
+### Schema / migration
+
+- Migration [`prisma/migrations/20260916154800_phase4a_fees_receipts`](prisma/migrations/20260916154800_phase4a_fees_receipts/migration.sql):
+  - `FeeType` enum (`ADMISSION` | `SCHOOL_FEES`); replaced `FeeStructure.isAdmissionFee` with `feeType` + optional `termId`
+  - `AdmissionApplication.admissionFeeWaived` / `admissionFeeWaivedReason`
+  - `SchoolSettings.receiptNextSeq` (one global per-school counter)
+  - `Receipt` model + `Payment.receiptId` (`ADM` / `FEE` / `STN` prefixes share that sequence)
+
+### Permissions
+
+- Added `fees.waive` (OWNER/ADMIN/IT_SUPPORT tier, same as `school.settings.update`)
+- Added `sales.record` (front-desk/accountant tier; used in 4C)
+- Existing `fees.manage` drives School Fees structure edits and school-fee payment recording
+
+### Server
+
+- New [`src/lib/fees/`](src/lib/fees/) — resolve school fee structures, generate term invoices, shared `recordInvoicePayment` + `AMOUNT_EXCEEDS_BALANCE`, receipt allocation, school-fee notify
+- Convert gate: ADMITTED and (waived **or** any admission payment); after convert, auto-generate current-term school fees invoice
+- [`src/lib/reports/receipt.ts`](src/lib/reports/receipt.ts) — generic `buildPaymentReceiptPdf`; thermal receipts prefer persisted `receiptNumber`
+
+### UI / routes
+
+- `/settings/fees` — admission fee + School Fees per term/class-level table
+- Applicant FeePanel — waiver toggle (`fees.waive`)
+- `/students` list + `/students/[id]/fees` — school fees invoice + payments (`FeeProgress`)
+- Nav: Students group; proxy matcher covers `/students` and `/sales`
+
+### Seed
+
+- Admission fee row kept (GHS 150, `feeType: ADMISSION`)
+- Starter `SCHOOL_FEES` structure per class level for the current term (GHS 500 placeholder)
+
+### Intentionally unfinished / deferred
+
+- Low-stock alerts / reorder (4C stock counter only)
+- Payment gateways (Paystack/Hubtel); multi-currency
+- Full student profile depth beyond fees
+- Excel/XLSX **exports** still deferred (imports arrive in 4B)
+- Partial admission-fee waiver UI (reduced amount) — use manual custom invoice instead
+
+---
+
+## 2026-09-16 — Phase 4B (Existing-student intake + Excel import)
+
+### Manual path
+
+- `/admissions/applications/new` step 1: **New admission** vs **Existing student** toggle
+- Existing student pre-sets `admissionFeeWaived = true` (reason: “Existing student intake”); staff can still edit waiver on the workspace
+
+### Bulk import
+
+- Route [`/admissions/import`](src/app/(tenant)/(authenticated)/admissions/import/) — permission `admissions.create`
+- Dependency: **`exceljs`** (template download + parse)
+- Template API: `GET /api/admissions/import/template`
+- Preview validates required fields, class level names, Ghana phone via `normalizeGhPhone`
+- Duplicate detection (name + DOB + class) against `AdmissionApplication` and `Student` — requires explicit confirm checkbox before commit
+- Commit: create apps at **ADMITTED** with `AdmissionStatusHistory`, apply waiver flags, then call existing `convertApplicantToStudent` (no parallel convert path); school-fees invoice generated when current term exists
+- Post-run CSV summary via `rowsToCsv`
+
+### Nav
+
+- Admissions → Import
+
+### Note on prior deferred Excel
+
+- **4B adds Excel for imports only.** List/dashboard **exports remain CSV/PDF** — XLSX exports stay deferred.
+
+### Intentionally unfinished / deferred
+
+- Duplicate detection on the **manual** wizard (still deferred; present on import only)
+- Inquiry-only lightweight intake
+- Partial waiver UI; payment gateways; low-stock alerts
+
+---
+
+## 2026-09-16 — Phase 4C (Stationery sales)
+
+### Schema / migration
+
+- Migration [`prisma/migrations/20260916160000_phase4c_stationery`](prisma/migrations/20260916160000_phase4c_stationery/migration.sql):
+  - `StationeryItem` (schoolId, name, unitPrice, stockQuantity, isActive)
+  - `StationerySale` (optional studentId for walk-ins, totals, method, recordedBy, receiptId)
+  - `StationerySaleLine` (item snapshot name/unitPrice/qty/lineTotal)
+  - `Receipt` ↔ sale link for `STN-` numbers on the shared `receiptNextSeq`
+
+### Permissions
+
+- `sales.record` — create sales (FRONT_DESK / ACCOUNTANT / ADMISSIONS_OFFICER / admins)
+- **Item CRUD:** `fees.manage` (no separate `sales.manage` in v1 — catalog treated as fee/pricing config)
+
+### Server / UI
+
+- [`src/lib/sales/`](src/lib/sales/) — create sale (stock decrement + price snapshot + STN receipt), guardian notify via existing mail/SMS
+- Route `/sales/stationery` — catalog, new-sale (item picker + qty + student search or walk-in), history, PDF receipt via `buildPaymentReceiptPdf`
+- Nav: Sales → Stationery
+
+### Intentionally unfinished / deferred
+
+- Low-stock alerts / reorder workflow (stock counter present only)
+- Partial stationery payments (v1 records sale as paid in full)
+- Payment gateways; multi-currency
+- Excel/XLSX **exports** still deferred (4B imports only)
+
+
+

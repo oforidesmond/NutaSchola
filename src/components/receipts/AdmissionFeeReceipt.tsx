@@ -1,9 +1,9 @@
 import { PAYMENT_METHOD_LABELS } from "@/lib/admissions/labels";
 import { formatDateAccra, formatGhs } from "@/lib/format/currency";
 import { brand } from "@/config/brand";
-import type { AdmissionFeeReceiptData, ThermalPaperWidth } from "@/lib/receipts/types";
+import type { InvoicePaymentReceiptData, ThermalPaperWidth } from "@/lib/receipts/types";
 
-function schoolAddressLine(school: AdmissionFeeReceiptData["school"]): string {
+function schoolAddressLine(school: InvoicePaymentReceiptData["school"]): string {
   return [school.address, school.city, school.region].filter(Boolean).join(", ");
 }
 
@@ -28,17 +28,17 @@ function Row({ label, value, bold = false }: { label: string; value: string; bol
   );
 }
 
-export function AdmissionFeeReceipt({
+export function InvoicePaymentReceipt({
   data,
   paperWidth,
   id,
 }: {
-  data: AdmissionFeeReceiptData;
+  data: InvoicePaymentReceiptData;
   paperWidth: ThermalPaperWidth;
   id?: string;
 }) {
   const address = schoolAddressLine(data.school);
-  const receiptRef = `${data.invoiceNumber}-P${data.paymentIndex}`;
+  const receiptRef = data.receiptNumber;
   const paidAt = data.payment.paidAt ? formatDateTimeAccra(data.payment.paidAt) : "—";
   const methodLabel = PAYMENT_METHOD_LABELS[data.payment.method];
 
@@ -61,7 +61,7 @@ export function AdmissionFeeReceipt({
 
       <hr className="thermal-receipt__rule" />
 
-      <p className="thermal-receipt__title">ADMISSION FEE RECEIPT</p>
+      <p className="thermal-receipt__title">{data.title}</p>
 
       <hr className="thermal-receipt__rule" />
 
@@ -74,8 +74,8 @@ export function AdmissionFeeReceipt({
       <hr className="thermal-receipt__rule" />
 
       <div className="thermal-receipt__rows">
-        <Row label="Applicant" value={data.applicant.fullName} />
-        <Row label="Class" value={data.applicant.classLevelAppliedName} />
+        <Row label={data.payerLabel} value={data.payer.fullName} />
+        <Row label={data.classLabel} value={data.payer.classLevelName} />
       </div>
 
       <hr className="thermal-receipt__rule" />
@@ -104,4 +104,11 @@ export function AdmissionFeeReceipt({
       </footer>
     </article>
   );
+}
+
+/** @deprecated Prefer InvoicePaymentReceipt */
+export function AdmissionFeeReceipt(
+  props: Parameters<typeof InvoicePaymentReceipt>[0],
+) {
+  return <InvoicePaymentReceipt {...props} />;
 }
