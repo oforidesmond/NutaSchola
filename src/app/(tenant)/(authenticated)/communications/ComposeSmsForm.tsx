@@ -301,8 +301,7 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
           value={customPhone}
           onChange={(e) => setCustomPhone(e.target.value)}
           required
-          placeholder="e.g. 0541298861 or +233541298861"
-          hint="Ghana numbers: local 0… or international +233…"
+          placeholder="e.g. 054... or +233..."
           error={fieldError("customPhone")}
         />
       ) : null}
@@ -316,7 +315,7 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
           rows={5}
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Short, clear message for guardians…"
+          placeholder="Short, clear message for guardian…"
           className="rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] px-3 py-2 text-base"
         />
         <span className="text-[13px] text-[var(--gray-500)]">
