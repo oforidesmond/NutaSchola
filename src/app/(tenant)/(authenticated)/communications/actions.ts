@@ -7,7 +7,11 @@ import { requireAction } from "@/lib/auth/session";
 import { ACTIONS } from "@/lib/permissions";
 import { fail, ok, toActionError, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/errors/logger";
-import { chunkArray, resolveGuardianSmsRecipients } from "@/lib/communications/recipients";
+import {
+  chunkArray,
+  resolveGuardianSmsRecipients,
+  type GuardianSmsRecipient,
+} from "@/lib/communications/recipients";
 import { dispatchSms, normalizeGhPhone, sendSms } from "@/lib/sms";
 
 function fieldErrorsFromZod(error: z.ZodError): Record<string, string[]> {
@@ -24,11 +28,55 @@ function toFailArgs(error: unknown): [string, string, Record<string, string[]>?]
   return [actionError.code, actionError.message, actionError.fieldErrors];
 }
 
+export type GuardianSmsSearchHit = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+};
+
+/**
+ * School-scoped guardian search for the compose SMS typeahead.
+ */
+export async function searchGuardiansForSmsAction(
+  query: string,
+): Promise<ActionResult<{ results: GuardianSmsSearchHit[] }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.COMMUNICATIONS_SEND);
+    const q = query.trim();
+    if (q.length < 1) {
+      return ok({ results: [] });
+    }
+
+    const results = await prisma.guardian.findMany({
+      where: {
+        schoolId: tenant.schoolId,
+        phone: { not: "" },
+        OR: [
+          { firstName: { contains: q, mode: "insensitive" } },
+          { lastName: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q } },
+          { altPhone: { contains: q } },
+        ],
+      },
+      select: { id: true, firstName: true, lastName: true, phone: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      take: 20,
+    });
+
+    return ok({ results });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
 const composeSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
   body: z.string().trim().min(1, "Message is required").max(640),
-  audience: z.enum(["all_primary", "class"]),
+  audience: z.enum(["all_primary", "class", "guardian", "custom_phone"]),
   classLevelId: z.string().optional(),
+  guardianId: z.string().optional(),
+  customPhone: z.string().optional(),
 });
 
 /**
@@ -44,6 +92,8 @@ export async function composeGuardianSmsAction(
       body: formData.get("body"),
       audience: formData.get("audience"),
       classLevelId: formData.get("classLevelId") || undefined,
+      guardianId: formData.get("guardianId") || undefined,
+      customPhone: formData.get("customPhone") || undefined,
     });
     if (!parsed.success) {
       return fail(
@@ -53,10 +103,32 @@ export async function composeGuardianSmsAction(
       );
     }
 
-    if (parsed.data.audience === "class" && !parsed.data.classLevelId) {
+    const { audience } = parsed.data;
+
+    if (audience === "class" && !parsed.data.classLevelId) {
       return fail("VALIDATION_ERROR", "Select a class for this audience.", {
         classLevelId: ["Select a class."],
       });
+    }
+
+    if (audience === "guardian" && !parsed.data.guardianId) {
+      return fail("VALIDATION_ERROR", "Select a guardian.", {
+        guardianId: ["Select a guardian."],
+      });
+    }
+
+    if (audience === "custom_phone") {
+      const raw = parsed.data.customPhone?.trim() ?? "";
+      if (!raw) {
+        return fail("VALIDATION_ERROR", "Enter a phone number.", {
+          customPhone: ["Enter a phone number."],
+        });
+      }
+      if (!normalizeGhPhone(raw)) {
+        return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", {
+          customPhone: ["Invalid Ghana phone number."],
+        });
+      }
     }
 
     const settings = await prisma.schoolSettings.findUnique({
@@ -78,11 +150,42 @@ export async function composeGuardianSmsAction(
       }
     }
 
-    const recipients = await resolveGuardianSmsRecipients({
-      schoolId: tenant.schoolId,
-      audience: parsed.data.audience,
-      classLevelId: parsed.data.classLevelId,
-    });
+    let recipients: GuardianSmsRecipient[];
+
+    if (audience === "guardian") {
+      const guardian = await prisma.guardian.findFirst({
+        where: { id: parsed.data.guardianId, schoolId: tenant.schoolId },
+      });
+      if (!guardian) {
+        return fail("NOT_FOUND", "Guardian not found.");
+      }
+      const phone = guardian.phone?.trim() || guardian.altPhone?.trim();
+      if (!phone) {
+        return fail("NO_RECIPIENTS", "This guardian has no phone number.");
+      }
+      recipients = [
+        {
+          phone,
+          guardianId: guardian.id,
+          firstName: guardian.firstName,
+        },
+      ];
+    } else if (audience === "custom_phone") {
+      const phone = parsed.data.customPhone!.trim();
+      recipients = [
+        {
+          phone,
+          guardianId: "custom",
+          firstName: "Recipient",
+        },
+      ];
+    } else {
+      recipients = await resolveGuardianSmsRecipients({
+        schoolId: tenant.schoolId,
+        audience,
+        classLevelId: parsed.data.classLevelId,
+      });
+    }
 
     if (recipients.length === 0) {
       return fail("NO_RECIPIENTS", "No guardian phone numbers matched this audience.");
@@ -93,8 +196,8 @@ export async function composeGuardianSmsAction(
         schoolId: tenant.schoolId,
         title: parsed.data.title,
         body: parsed.data.body,
-        audience: parsed.data.audience === "class" ? "SPECIFIC_CLASS" : "PARENTS",
-        classLevelId: parsed.data.audience === "class" ? parsed.data.classLevelId : null,
+        audience: audience === "class" ? "SPECIFIC_CLASS" : "PARENTS",
+        classLevelId: audience === "class" ? parsed.data.classLevelId : null,
         createdById: user.id,
         publishedAt: new Date(),
       },
