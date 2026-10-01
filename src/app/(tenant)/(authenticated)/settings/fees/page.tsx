@@ -86,7 +86,7 @@ export default async function FeesSettingsPage({
     <div>
       <PageHeader
         title="Fees"
-        description="Configure admission and school fees. New invoices snapshot amounts at generation time."
+        description="Configure admission and school fees. Saving school fees can update existing student invoices; you can also adjust an individual student’s billed amount on their Fees page."
         action={
           <Link href="/settings/school">
             <Button variant="secondary" type="button">

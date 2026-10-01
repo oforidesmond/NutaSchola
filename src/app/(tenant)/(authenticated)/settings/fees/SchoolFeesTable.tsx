@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input } from "@/components/ui/primitives";
 import { formatGhs } from "@/lib/format/currency";
@@ -63,6 +63,8 @@ function SchoolFeeRowEditor({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const pendingFormDataRef = useRef<FormData | null>(null);
 
   async function onCreate() {
     setLoading(true);
@@ -80,19 +82,41 @@ function SchoolFeeRowEditor({
     router.refresh();
   }
 
-  async function onSave(event: FormEvent<HTMLFormElement>) {
+  function onSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!row.feeStructureId || !row.feeItemId) return;
+    setError(null);
+    setMessage(null);
+    pendingFormDataRef.current = new FormData(event.currentTarget);
+    setConfirmOpen(true);
+  }
+
+  async function saveFee(applyToExistingInvoices: boolean) {
+    const formData = pendingFormDataRef.current;
+    if (!formData) return;
+    formData.set("applyToExistingInvoices", applyToExistingInvoices ? "true" : "false");
     setLoading(true);
     setError(null);
     setMessage(null);
-    const result = await updateSchoolFeeAction(new FormData(event.currentTarget));
+    const result = await updateSchoolFeeAction(formData);
     setLoading(false);
+    setConfirmOpen(false);
+    pendingFormDataRef.current = null;
     if (!result.ok) {
       setError(result.error.message);
       return;
     }
-    setMessage("Saved.");
+    if (applyToExistingInvoices) {
+      const parts = [`Saved. Updated ${result.data.updated} invoice${result.data.updated === 1 ? "" : "s"}.`];
+      if (result.data.skipped > 0) {
+        parts.push(
+          `Skipped ${result.data.skipped} (fully paid or amount already paid exceeds new total).`,
+        );
+      }
+      setMessage(parts.join(" "));
+    } else {
+      setMessage("Saved template only. Existing student invoices were not changed.");
+    }
     router.refresh();
   }
 
@@ -149,7 +173,78 @@ function SchoolFeeRowEditor({
           {message ? <span className="text-[13px] text-[var(--success-700)]">{message}</span> : null}
           {error ? <span className="text-[13px] text-[var(--error-700)]">{error}</span> : null}
         </form>
+        <SaveFeeConfirmDialog
+          open={confirmOpen}
+          classLevelName={row.classLevelName}
+          loading={loading}
+          onUpdateInvoices={() => void saveFee(true)}
+          onTemplateOnly={() => void saveFee(false)}
+          onCancel={() => {
+            if (!loading) {
+              setConfirmOpen(false);
+              pendingFormDataRef.current = null;
+            }
+          }}
+        />
       </td>
     </tr>
+  );
+}
+
+function SaveFeeConfirmDialog({
+  open,
+  classLevelName,
+  loading,
+  onUpdateInvoices,
+  onTemplateOnly,
+  onCancel,
+}: {
+  open: boolean;
+  classLevelName: string;
+  loading: boolean;
+  onUpdateInvoices: () => void;
+  onTemplateOnly: () => void;
+  onCancel: () => void;
+}) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    if (open && !el.open) el.showModal();
+    if (!open && el.open) el.close();
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="fixed inset-0 z-50 m-auto w-[min(100%-2rem,28rem)] rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--white)] p-0 shadow-[var(--shadow-xl)] backdrop:bg-black/40"
+      onClose={onCancel}
+      aria-labelledby={titleId}
+    >
+      <div className="flex flex-col gap-4 p-6">
+        <h2 id={titleId} className="text-[20px] font-semibold text-[var(--gray-900)]">
+          Save school fees for {classLevelName}?
+        </h2>
+        <p className="text-base text-[var(--gray-700)]">
+          Update existing student invoices for this term and class that are not fully paid, or
+          save the template only so current outstanding balances stay unchanged.
+        </p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="button" variant="secondary" loading={loading} onClick={onTemplateOnly}>
+            Save template only
+          </Button>
+          <Button type="button" loading={loading} onClick={onUpdateInvoices}>
+            Save and update invoices
+          </Button>
+        </div>
+      </div>
+    </dialog>
   );
 }

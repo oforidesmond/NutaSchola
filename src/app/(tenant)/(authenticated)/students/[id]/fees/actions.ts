@@ -11,6 +11,7 @@ import {
   generateSchoolFeesInvoice,
   notifySchoolFeePayment,
   recordInvoicePayment,
+  updateStudentInvoiceBilledTotal,
 } from "@/lib/fees";
 import { PAYMENT_METHOD_LABELS } from "@/lib/admissions/labels";
 import { resolvePrimaryGuardianContact } from "@/lib/sms";
@@ -39,6 +40,53 @@ export async function generateStudentSchoolFeesInvoiceAction(
 
     revalidatePath(`/students/${studentId}/fees`);
     return ok({ invoiceId: invoice.id });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
+const updateAmountSchema = z.object({
+  studentId: z.string().min(1),
+  invoiceId: z.string().min(1),
+  amount: z.coerce.number().positive("Enter an amount greater than zero"),
+});
+
+export async function updateStudentSchoolFeeAmountAction(
+  formData: FormData,
+): Promise<ActionResult<{ saved: true; totalAmount: string }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.FEES_MANAGE);
+    const parsed = updateAmountSchema.safeParse({
+      studentId: formData.get("studentId"),
+      invoiceId: formData.get("invoiceId"),
+      amount: formData.get("amount"),
+    });
+    if (!parsed.success) {
+      return fail("VALIDATION_ERROR", "Please enter a valid billed amount.");
+    }
+
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: parsed.data.invoiceId,
+        schoolId: tenant.schoolId,
+        studentId: parsed.data.studentId,
+        status: { notIn: ["CANCELED", "VOID"] },
+      },
+      include: { feeStructure: { select: { feeType: true } } },
+    });
+    if (!invoice || invoice.feeStructure?.feeType !== "SCHOOL_FEES") {
+      return fail("NOT_FOUND", "School fees invoice not found.");
+    }
+
+    const result = await updateStudentInvoiceBilledTotal(prisma, {
+      schoolId: tenant.schoolId,
+      invoiceId: invoice.id,
+      totalAmount: parsed.data.amount,
+    });
+
+    revalidatePath(`/students/${parsed.data.studentId}/fees`);
+    revalidatePath("/students");
+    return ok({ saved: true, totalAmount: result.totalAmount.toFixed(2) });
   } catch (error) {
     return fail(...toFailArgs(error));
   }

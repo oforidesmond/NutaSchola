@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireAction } from "@/lib/auth/session";
 import { ACTIONS } from "@/lib/permissions";
 import { fail, ok, toActionError, type ActionResult } from "@/lib/errors";
+import { syncInvoicesFromFeeStructure } from "@/lib/fees";
 
 const admissionSchema = z.object({
   feeItemId: z.string().min(1),
@@ -86,11 +87,15 @@ const schoolFeeSchema = z.object({
     .trim()
     .regex(/^\d+(\.\d{1,2})?$/, "Enter a valid amount with up to 2 decimal places"),
   itemName: z.string().min(1).max(120),
+  applyToExistingInvoices: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 export async function updateSchoolFeeAction(
   formData: FormData,
-): Promise<ActionResult<{ saved: true }>> {
+): Promise<ActionResult<{ saved: true; updated: number; skipped: number }>> {
   try {
     const { tenant } = await requireAction(ACTIONS.FEES_MANAGE);
 
@@ -99,6 +104,7 @@ export async function updateSchoolFeeAction(
       feeItemId: formData.get("feeItemId"),
       amount: formData.get("amount"),
       itemName: formData.get("itemName"),
+      applyToExistingInvoices: formData.get("applyToExistingInvoices") || "false",
     });
 
     if (!parsed.success) {
@@ -124,6 +130,7 @@ export async function updateSchoolFeeAction(
         feeType: "SCHOOL_FEES",
         items: { some: { id: parsed.data.feeItemId } },
       },
+      include: { items: true },
     });
 
     if (!feeStructure) {
@@ -138,8 +145,36 @@ export async function updateSchoolFeeAction(
       },
     });
 
+    let updated = 0;
+    let skipped = 0;
+
+    if (parsed.data.applyToExistingInvoices) {
+      const syncItems = feeStructure.items.map((item) =>
+        item.id === parsed.data.feeItemId
+          ? {
+              feeItemId: item.id,
+              name: parsed.data.itemName.trim(),
+              amount: Number(amount.toFixed(2)),
+            }
+          : {
+              feeItemId: item.id,
+              name: item.name,
+              amount: Number(item.amount.toFixed(2)),
+            },
+      );
+
+      const result = await syncInvoicesFromFeeStructure(prisma, {
+        schoolId: tenant.schoolId,
+        feeStructureId: feeStructure.id,
+        feeItems: syncItems,
+      });
+      updated = result.updated;
+      skipped = result.skipped;
+    }
+
     revalidatePath("/settings/fees");
-    return ok({ saved: true });
+    revalidatePath("/students");
+    return ok({ saved: true, updated, skipped });
   } catch (error) {
     const actionError = toActionError(error);
     return fail(actionError.code, actionError.message, actionError.fieldErrors);

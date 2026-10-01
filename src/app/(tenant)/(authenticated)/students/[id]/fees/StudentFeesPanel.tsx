@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { InvoiceStatus, PaymentMethod } from "@prisma/client";
 import { Printer } from "lucide-react";
 import { Button, Input, StatusBadge } from "@/components/ui/primitives";
@@ -15,6 +16,7 @@ import type { ReceiptPayer } from "@/lib/receipts/types";
 import {
   generateStudentSchoolFeesInvoiceAction,
   recordSchoolFeePaymentAction,
+  updateStudentSchoolFeeAmountAction,
 } from "./actions";
 
 export type StudentInvoiceView = {
@@ -51,13 +53,17 @@ export function StudentFeesPanel({
   school: ReportSchoolBrand;
   payer: ReceiptPayer;
 }) {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [receiptInvoiceId, setReceiptInvoiceId] = useState<string | null>(null);
   const pendingFormDataRef = useRef<FormData | null>(null);
+  const pendingEditFormDataRef = useRef<FormData | null>(null);
 
   const currentInvoice = currentTermId
     ? invoices.find((inv) => inv.termId === currentTermId)
@@ -65,6 +71,10 @@ export function StudentFeesPanel({
 
   const receiptInvoice = receiptInvoiceId
     ? invoices.find((inv) => inv.id === receiptInvoiceId)
+    : null;
+
+  const pendingEditInvoice = editingInvoiceId
+    ? invoices.find((inv) => inv.id === editingInvoiceId)
     : null;
 
   async function onGenerate() {
@@ -79,6 +89,7 @@ export function StudentFeesPanel({
       return;
     }
     setMessage("School fees invoice generated for the current term.");
+    router.refresh();
   }
 
   function onRecordPayment(event: FormEvent<HTMLFormElement>, invoiceId: string) {
@@ -103,6 +114,33 @@ export function StudentFeesPanel({
       return;
     }
     setMessage(`Payment recorded. Receipt ${result.data.receiptNumber}.`);
+    router.refresh();
+  }
+
+  function onEditAmount(event: FormEvent<HTMLFormElement>, invoiceId: string) {
+    event.preventDefault();
+    pendingEditFormDataRef.current = new FormData(event.currentTarget);
+    setEditingInvoiceId(invoiceId);
+    setEditConfirmOpen(true);
+  }
+
+  async function confirmEditAmount() {
+    const formData = pendingEditFormDataRef.current;
+    if (!formData) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    const result = await updateStudentSchoolFeeAmountAction(formData);
+    setLoading(false);
+    setEditConfirmOpen(false);
+    pendingEditFormDataRef.current = null;
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+    setEditingInvoiceId(null);
+    setMessage(`Billed amount updated to ${formatGhs(result.data.totalAmount)}.`);
+    router.refresh();
   }
 
   return (
@@ -136,6 +174,11 @@ export function StudentFeesPanel({
       <div className="mt-4 flex flex-col gap-6">
         {invoices.map((invoice) => {
           const balance = Number(feeOutstanding(invoice).toFixed(2));
+          const paid = Number(invoice.amountPaid);
+          const canEditAmount =
+            canManage && invoice.status !== "CANCELED" && invoice.status !== "VOID";
+          const isEditing = editingInvoiceId === invoice.id;
+
           return (
             <div
               key={invoice.id}
@@ -158,6 +201,66 @@ export function StudentFeesPanel({
                   </li>
                 ))}
               </ul>
+
+              {canEditAmount ? (
+                <div className="mt-3 border-t border-[var(--gray-100)] pt-3">
+                  {isEditing ? (
+                    <form
+                      className="flex flex-wrap items-end gap-3"
+                      onSubmit={(e) => onEditAmount(e, invoice.id)}
+                    >
+                      <input type="hidden" name="studentId" value={studentId} />
+                      <input type="hidden" name="invoiceId" value={invoice.id} />
+                      <Input
+                        label="Billed amount (GHS)"
+                        name="amount"
+                        type="number"
+                        step="0.01"
+                        min={Math.max(0.01, paid).toFixed(2)}
+                        defaultValue={Number(invoice.totalAmount).toFixed(2)}
+                        required
+                        className="font-variant-numeric tabular-nums"
+                      />
+                      <Button
+                        type="submit"
+                        loading={loading && editingInvoiceId === invoice.id}
+                      >
+                        Save amount
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={loading}
+                        onClick={() => {
+                          setEditingInvoiceId(null);
+                          pendingEditFormDataRef.current = null;
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      {paid > 0 ? (
+                        <p className="w-full text-[13px] text-[var(--gray-500)]">
+                          Must be at least GHS {paid.toFixed(2)} (already paid).
+                        </p>
+                      ) : null}
+                    </form>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="self-start"
+                      onClick={() => {
+                        setEditingInvoiceId(invoice.id);
+                        setError(null);
+                        setMessage(null);
+                      }}
+                    >
+                      Edit amount
+                    </Button>
+                  )}
+                </div>
+              ) : null}
+
               {invoice.payments.length > 0 ? (
                 <div className="mt-3 border-t border-[var(--gray-100)] pt-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -261,6 +364,25 @@ export function StudentFeesPanel({
           if (!loading) {
             setConfirmOpen(false);
             pendingFormDataRef.current = null;
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={editConfirmOpen}
+        title="Update billed fee amount?"
+        consequence={
+          pendingEditInvoice
+            ? `This changes what the student is charged for ${pendingEditInvoice.termName ?? "this term"}. Payments already recorded stay the same; outstanding balance will be recalculated.`
+            : "This changes the billed fee amount for this student. Outstanding balance will be recalculated."
+        }
+        confirmLabel="Yes, update amount"
+        loading={loading}
+        onConfirm={() => void confirmEditAmount()}
+        onCancel={() => {
+          if (!loading) {
+            setEditConfirmOpen(false);
+            pendingEditFormDataRef.current = null;
           }
         }}
       />
