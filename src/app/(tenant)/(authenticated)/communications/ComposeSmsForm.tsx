@@ -16,6 +16,16 @@ type Audience = "all_primary" | "class" | "guardian" | "custom_phone";
 const inputClass =
   "min-h-11 w-full rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] px-3 text-base";
 
+function countPhoneTokens(raw: string): number {
+  const seen = new Set<string>();
+  for (const token of raw.split(/[,;\s]+/)) {
+    const t = token.trim();
+    if (!t) continue;
+    seen.add(t);
+  }
+  return seen.size;
+}
+
 export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) {
   const [audience, setAudience] = useState<Audience>("all_primary");
   const [body, setBody] = useState("");
@@ -29,7 +39,7 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
 
   const [guardianQuery, setGuardianQuery] = useState("");
   const [guardianResults, setGuardianResults] = useState<GuardianSmsSearchHit[]>([]);
-  const [selectedGuardian, setSelectedGuardian] = useState<GuardianSmsSearchHit | null>(null);
+  const [selectedGuardians, setSelectedGuardians] = useState<GuardianSmsSearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [resultsOpen, setResultsOpen] = useState(false);
   const searchSeq = useRef(0);
@@ -41,8 +51,14 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
     return Math.ceil(charCount / 153);
   }, [charCount]);
 
+  const customPhoneCount = useMemo(() => countPhoneTokens(customPhone), [customPhone]);
+  const selectedGuardianIds = useMemo(
+    () => new Set(selectedGuardians.map((g) => g.id)),
+    [selectedGuardians],
+  );
+
   useEffect(() => {
-    if (audience !== "guardian" || selectedGuardian) {
+    if (audience !== "guardian") {
       setGuardianResults([]);
       setSearching(false);
       return;
@@ -72,7 +88,7 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [audience, guardianQuery, selectedGuardian]);
+  }, [audience, guardianQuery]);
 
   function fieldError(name: string) {
     return fieldErrors[name]?.[0];
@@ -80,7 +96,7 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
 
   function onAudienceChange(next: Audience) {
     setAudience(next);
-    setSelectedGuardian(null);
+    setSelectedGuardians([]);
     setGuardianQuery("");
     setGuardianResults([]);
     setCustomPhone("");
@@ -88,14 +104,21 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
   }
 
   function pickGuardian(hit: GuardianSmsSearchHit) {
-    setSelectedGuardian(hit);
-    setGuardianQuery(`${hit.firstName} ${hit.lastName}`);
+    setSelectedGuardians((prev) => {
+      if (prev.some((g) => g.id === hit.id)) return prev;
+      return [...prev, hit];
+    });
+    setGuardianQuery("");
     setGuardianResults([]);
     setResultsOpen(false);
   }
 
-  function clearGuardian() {
-    setSelectedGuardian(null);
+  function removeGuardian(id: string) {
+    setSelectedGuardians((prev) => prev.filter((g) => g.id !== id));
+  }
+
+  function clearGuardians() {
+    setSelectedGuardians([]);
     setGuardianQuery("");
     setGuardianResults([]);
     setResultsOpen(false);
@@ -125,9 +148,13 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
     }
     const label =
       audience === "custom_phone"
-        ? "recipient"
+        ? result.data.recipientCount === 1
+          ? "number"
+          : "numbers"
         : audience === "guardian"
-          ? "guardian"
+          ? result.data.recipientCount === 1
+            ? "guardian"
+            : "guardians"
           : "guardians";
     setMessage(
       `Sent to ${result.data.sent} of ${result.data.recipientCount} ${label}` +
@@ -136,27 +163,35 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
     );
     setBody("");
     if (audience === "custom_phone") setCustomPhone("");
-    if (audience === "guardian") clearGuardian();
+    if (audience === "guardian") clearGuardians();
   }
 
   const confirmCopy =
     audience === "guardian"
       ? {
-          title: "Send this SMS to this guardian?",
+          title:
+            selectedGuardians.length === 1
+              ? "Send this SMS to this guardian?"
+              : `Send this SMS to ${selectedGuardians.length} guardians?`,
           consequence:
-            "This creates an announcement and texts the selected guardian. Only continue if the message is ready to go out.",
+            "This creates an announcement and texts the selected guardians. Only continue if the message is ready to go out.",
         }
       : audience === "custom_phone"
         ? {
-            title: "Send this SMS to this number?",
+            title:
+              customPhoneCount === 1
+                ? "Send this SMS to this number?"
+                : `Send this SMS to ${customPhoneCount} numbers?`,
             consequence:
-              "This creates an announcement and texts the phone number you entered. Only continue if the message is ready to go out.",
+              "This creates an announcement and texts the phone numbers you entered. Only continue if the message is ready to go out.",
           }
         : {
             title: "Send this SMS to guardians?",
             consequence:
               "This creates an announcement and texts every matching guardian phone. Only continue if the message is ready to go out.",
           };
+
+  const visibleResults = guardianResults.filter((hit) => !selectedGuardianIds.has(hit.id));
 
   return (
     <form onSubmit={onSubmit} className="flex max-w-xl flex-col gap-5">
@@ -190,8 +225,8 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
         >
           <option value="all_primary">All primary guardians</option>
           <option value="class">By class (enrolled students)</option>
-          <option value="guardian">One guardian</option>
-          <option value="custom_phone">Custom phone number</option>
+          <option value="guardian">Select guardians</option>
+          <option value="custom_phone">Custom phone numbers</option>
         </select>
       </label>
 
@@ -220,90 +255,127 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
       ) : null}
 
       {audience === "guardian" ? (
-        <div className="relative flex flex-col gap-2">
-          <label className="flex flex-col gap-2">
-            <span className="text-[15px] font-medium text-[var(--gray-800)]">Guardian</span>
-            <input
-              type="text"
-              value={guardianQuery}
-              onChange={(e) => {
-                setGuardianQuery(e.target.value);
-                if (selectedGuardian) setSelectedGuardian(null);
-                setResultsOpen(true);
-              }}
-              onFocus={() => {
-                if (!selectedGuardian && guardianResults.length > 0) setResultsOpen(true);
-              }}
-              onBlur={() => {
-                // Allow click on a result before closing.
-                window.setTimeout(() => setResultsOpen(false), 150);
-              }}
-              placeholder="Search by name or phone…"
-              autoComplete="off"
-              className={inputClass}
-              aria-autocomplete="list"
-              aria-expanded={resultsOpen}
-            />
-          </label>
-          <input type="hidden" name="guardianId" value={selectedGuardian?.id ?? ""} />
-          {selectedGuardian ? (
-            <div className="flex items-center justify-between gap-2 rounded-[var(--radius-sm)] bg-[var(--gray-50)] px-3 py-2 text-[14px] text-[var(--gray-800)]">
-              <span>
-                {selectedGuardian.firstName} {selectedGuardian.lastName} · {selectedGuardian.phone}
-              </span>
-              <button
-                type="button"
-                onClick={clearGuardian}
-                className="text-[14px] font-medium text-[var(--brand-700)] hover:underline"
+        <div className="flex flex-col gap-2">
+          <div className="relative flex flex-col gap-2">
+            <label className="flex flex-col gap-2">
+              <span className="text-[15px] font-medium text-[var(--gray-800)]">Guardians</span>
+              <input
+                type="text"
+                value={guardianQuery}
+                onChange={(e) => {
+                  setGuardianQuery(e.target.value);
+                  setResultsOpen(true);
+                }}
+                onFocus={() => {
+                  if (guardianResults.length > 0) setResultsOpen(true);
+                }}
+                onBlur={() => {
+                  // Allow click on a result before closing.
+                  window.setTimeout(() => setResultsOpen(false), 150);
+                }}
+                placeholder="Search by name or phone to add…"
+                autoComplete="off"
+                className={inputClass}
+                aria-autocomplete="list"
+                aria-expanded={resultsOpen}
+              />
+            </label>
+            {resultsOpen && (searching || visibleResults.length > 0 || guardianQuery.trim()) ? (
+              <ul
+                role="listbox"
+                className="absolute top-full z-10 mt-1 max-h-56 w-full overflow-auto rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] shadow-sm"
               >
-                Clear
-              </button>
-            </div>
-          ) : null}
-          {resultsOpen && !selectedGuardian && (searching || guardianResults.length > 0 || guardianQuery.trim()) ? (
-            <ul
-              role="listbox"
-              className="absolute top-full z-10 mt-1 max-h-56 w-full overflow-auto rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] shadow-sm"
-            >
-              {searching ? (
-                <li className="px-3 py-2 text-[14px] text-[var(--gray-500)]">Searching…</li>
-              ) : guardianResults.length === 0 ? (
-                <li className="px-3 py-2 text-[14px] text-[var(--gray-500)]">No guardians found.</li>
-              ) : (
-                guardianResults.map((hit) => (
-                  <li key={hit.id} role="option">
+                {searching ? (
+                  <li className="px-3 py-2 text-[14px] text-[var(--gray-500)]">Searching…</li>
+                ) : visibleResults.length === 0 ? (
+                  <li className="px-3 py-2 text-[14px] text-[var(--gray-500)]">
+                    {guardianResults.length > 0 && selectedGuardianIds.size > 0
+                      ? "All matching guardians already selected."
+                      : "No guardians found."}
+                  </li>
+                ) : (
+                  visibleResults.map((hit) => (
+                    <li key={hit.id} role="option">
+                      <button
+                        type="button"
+                        className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-[var(--gray-50)]"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pickGuardian(hit)}
+                      >
+                        <span className="text-[15px] text-[var(--gray-900)]">
+                          {hit.firstName} {hit.lastName}
+                        </span>
+                        <span className="text-[13px] text-[var(--gray-500)]">{hit.phone}</span>
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            ) : null}
+          </div>
+          {selectedGuardians.map((g) => (
+            <input key={g.id} type="hidden" name="guardianIds" value={g.id} />
+          ))}
+          {selectedGuardians.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                {selectedGuardians.map((g) => (
+                  <span
+                    key={g.id}
+                    className="inline-flex max-w-full items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--gray-50)] px-3 py-1.5 text-[14px] text-[var(--gray-800)]"
+                  >
+                    <span className="truncate">
+                      {g.firstName} {g.lastName} · {g.phone}
+                    </span>
                     <button
                       type="button"
-                      className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-[var(--gray-50)]"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => pickGuardian(hit)}
+                      onClick={() => removeGuardian(g.id)}
+                      className="shrink-0 text-[14px] font-medium text-[var(--brand-700)] hover:underline"
+                      aria-label={`Remove ${g.firstName} ${g.lastName}`}
                     >
-                      <span className="text-[15px] text-[var(--gray-900)]">
-                        {hit.firstName} {hit.lastName}
-                      </span>
-                      <span className="text-[13px] text-[var(--gray-500)]">{hit.phone}</span>
+                      Remove
                     </button>
-                  </li>
-                ))
-              )}
-            </ul>
+                  </span>
+                ))}
+              </div>
+              <div className="flex items-center justify-between gap-2 text-[13px] text-[var(--gray-500)]">
+                <span>
+                  {selectedGuardians.length} guardian
+                  {selectedGuardians.length === 1 ? "" : "s"} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={clearGuardians}
+                  className="font-medium text-[var(--brand-700)] hover:underline"
+                >
+                  Clear all
+                </button>
+              </div>
+            </div>
           ) : null}
-          {fieldError("guardianId") ? (
-            <span className="text-[14px] text-[var(--error-700)]">{fieldError("guardianId")}</span>
+          {fieldError("guardianIds") ? (
+            <span className="text-[14px] text-[var(--error-700)]">{fieldError("guardianIds")}</span>
           ) : null}
         </div>
       ) : null}
 
       {audience === "custom_phone" ? (
-        <Input
-          label="Phone number"
-          name="customPhone"
-          value={customPhone}
-          onChange={(e) => setCustomPhone(e.target.value)}
-          required
-          placeholder="e.g. 054... or +233..."
-          error={fieldError("customPhone")}
-        />
+        <label className="flex flex-col gap-2">
+          <span className="text-[15px] font-medium text-[var(--gray-800)]">Phone numbers</span>
+          <textarea
+            name="customPhone"
+            required
+            rows={4}
+            value={customPhone}
+            onChange={(e) => setCustomPhone(e.target.value)}
+            placeholder={"One per line, or separated by commas\ne.g. 054…, +233…"}
+            className="rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] px-3 py-2 text-base"
+          />
+          <span className="text-[13px] text-[var(--gray-500)]">
+            {customPhoneCount} number{customPhoneCount === 1 ? "" : "s"}
+            {fieldError("customPhone") ? ` · ${fieldError("customPhone")}` : ""}
+          </span>
+        </label>
       ) : null}
 
       <label className="flex flex-col gap-2">

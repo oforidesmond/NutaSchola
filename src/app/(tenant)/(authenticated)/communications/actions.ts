@@ -12,7 +12,9 @@ import {
   resolveGuardianSmsRecipients,
   type GuardianSmsRecipient,
 } from "@/lib/communications/recipients";
-import { dispatchSms, normalizeGhPhone, sendSms } from "@/lib/sms";
+import { dispatchSms, canUseEbits, normalizeGhPhone, parseGhPhoneList, sendSms } from "@/lib/sms";
+
+const MAX_BULK_RECIPIENTS = 100;
 
 function fieldErrorsFromZod(error: z.ZodError): Record<string, string[]> {
   const fieldErrors: Record<string, string[]> = {};
@@ -75,7 +77,7 @@ const composeSchema = z.object({
   body: z.string().trim().min(1, "Message is required").max(640),
   audience: z.enum(["all_primary", "class", "guardian", "custom_phone"]),
   classLevelId: z.string().optional(),
-  guardianId: z.string().optional(),
+  guardianIds: z.array(z.string().min(1)).optional(),
   customPhone: z.string().optional(),
 });
 
@@ -87,12 +89,17 @@ export async function composeGuardianSmsAction(
 ): Promise<ActionResult<{ sent: number; failed: number; recipientCount: number }>> {
   try {
     const { tenant, user } = await requireAction(ACTIONS.COMMUNICATIONS_SEND);
+    const guardianIdsRaw = formData
+      .getAll("guardianIds")
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean);
+
     const parsed = composeSchema.safeParse({
       title: formData.get("title"),
       body: formData.get("body"),
       audience: formData.get("audience"),
       classLevelId: formData.get("classLevelId") || undefined,
-      guardianId: formData.get("guardianId") || undefined,
+      guardianIds: guardianIdsRaw.length > 0 ? guardianIdsRaw : undefined,
       customPhone: formData.get("customPhone") || undefined,
     });
     if (!parsed.success) {
@@ -111,24 +118,44 @@ export async function composeGuardianSmsAction(
       });
     }
 
-    if (audience === "guardian" && !parsed.data.guardianId) {
-      return fail("VALIDATION_ERROR", "Select a guardian.", {
-        guardianId: ["Select a guardian."],
-      });
+    if (audience === "guardian") {
+      const ids = parsed.data.guardianIds ?? [];
+      if (ids.length === 0) {
+        return fail("VALIDATION_ERROR", "Select at least one guardian.", {
+          guardianIds: ["Select at least one guardian."],
+        });
+      }
+      if (ids.length > MAX_BULK_RECIPIENTS) {
+        return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", {
+          guardianIds: [`Select at most ${MAX_BULK_RECIPIENTS} guardians.`],
+        });
+      }
     }
 
+    let customPhones: string[] = [];
     if (audience === "custom_phone") {
       const raw = parsed.data.customPhone?.trim() ?? "";
       if (!raw) {
-        return fail("VALIDATION_ERROR", "Enter a phone number.", {
-          customPhone: ["Enter a phone number."],
+        return fail("VALIDATION_ERROR", "Enter at least one phone number.", {
+          customPhone: ["Enter at least one phone number."],
         });
       }
-      if (!normalizeGhPhone(raw)) {
+      const parsedList = parseGhPhoneList(raw);
+      if (parsedList.phones.length === 0) {
         return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", {
-          customPhone: ["Invalid Ghana phone number."],
+          customPhone: [
+            parsedList.invalidCount > 0
+              ? "No valid Ghana phone numbers found."
+              : "Enter at least one phone number.",
+          ],
         });
       }
+      if (parsedList.phones.length > MAX_BULK_RECIPIENTS) {
+        return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", {
+          customPhone: [`Enter at most ${MAX_BULK_RECIPIENTS} phone numbers.`],
+        });
+      }
+      customPhones = parsedList.phones;
     }
 
     const settings = await prisma.schoolSettings.findUnique({
@@ -138,6 +165,13 @@ export async function composeGuardianSmsAction(
       return fail(
         "SMS_DISABLED",
         "SMS notifications are disabled for this school. Enable them in School settings.",
+      );
+    }
+
+    if (!canUseEbits()) {
+      return fail(
+        "SMS_CREDITS_EXHAUSTED",
+        "Your SMS credits are finished. Please top up to continue sending messages.",
       );
     }
 
@@ -153,32 +187,36 @@ export async function composeGuardianSmsAction(
     let recipients: GuardianSmsRecipient[];
 
     if (audience === "guardian") {
-      const guardian = await prisma.guardian.findFirst({
-        where: { id: parsed.data.guardianId, schoolId: tenant.schoolId },
+      const ids = [...new Set(parsed.data.guardianIds ?? [])];
+      const guardians = await prisma.guardian.findMany({
+        where: { id: { in: ids }, schoolId: tenant.schoolId },
       });
-      if (!guardian) {
-        return fail("NOT_FOUND", "Guardian not found.");
+      if (guardians.length === 0) {
+        return fail("NOT_FOUND", "No matching guardians found.");
       }
-      const phone = guardian.phone?.trim() || guardian.altPhone?.trim();
-      if (!phone) {
-        return fail("NO_RECIPIENTS", "This guardian has no phone number.");
-      }
-      recipients = [
-        {
+
+      const byPhone = new Map<string, GuardianSmsRecipient>();
+      for (const guardian of guardians) {
+        const phone = guardian.phone?.trim() || guardian.altPhone?.trim();
+        if (!phone) continue;
+        const normalized = normalizeGhPhone(phone);
+        if (!normalized || byPhone.has(normalized)) continue;
+        byPhone.set(normalized, {
           phone,
           guardianId: guardian.id,
           firstName: guardian.firstName,
-        },
-      ];
+        });
+      }
+      recipients = [...byPhone.values()];
+      if (recipients.length === 0) {
+        return fail("NO_RECIPIENTS", "Selected guardians have no valid phone numbers.");
+      }
     } else if (audience === "custom_phone") {
-      const phone = parsed.data.customPhone!.trim();
-      recipients = [
-        {
-          phone,
-          guardianId: "custom",
-          firstName: "Recipient",
-        },
-      ];
+      recipients = customPhones.map((phone) => ({
+        phone,
+        guardianId: "custom",
+        firstName: "Recipient",
+      }));
     } else {
       recipients = await resolveGuardianSmsRecipients({
         schoolId: tenant.schoolId,

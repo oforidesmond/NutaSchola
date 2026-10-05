@@ -1,6 +1,7 @@
 export type { OutboundSms } from "@/lib/sms/types";
 export { sendSms } from "@/lib/sms/send";
-export { normalizeGhPhone, uniqueNormalizedPhones } from "@/lib/sms/phone";
+export { normalizeGhPhone, uniqueNormalizedPhones, parseGhPhoneList } from "@/lib/sms/phone";
+export { canUseEbits } from "@/lib/sms/providers/ebits";
 export {
   admissionStageSms,
   admissionFeeDueSms,

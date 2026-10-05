@@ -40,3 +40,32 @@ export function uniqueNormalizedPhones(phones: Array<string | null | undefined>)
   }
   return out;
 }
+
+/**
+ * Split a free-form phone list (commas, semicolons, whitespace, newlines)
+ * into unique Ghana-normalized numbers. Invalid tokens are skipped.
+ * Returns original raw tokens that normalized successfully (first occurrence wins).
+ */
+export function parseGhPhoneList(raw: string): { phones: string[]; invalidCount: number } {
+  const tokens = raw
+    .split(/[,;\s]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  const seen = new Set<string>();
+  const phones: string[] = [];
+  let invalidCount = 0;
+
+  for (const token of tokens) {
+    const normalized = normalizeGhPhone(token);
+    if (!normalized) {
+      invalidCount += 1;
+      continue;
+    }
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    phones.push(token);
+  }
+
+  return { phones, invalidCount };
+}
