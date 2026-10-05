@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useAppRouter } from "@/components/navigation/useAppRouter";
 import { Button, Input } from "@/components/ui/primitives";
 import { changePasswordAction } from "./actions";
 
@@ -10,7 +10,7 @@ type ChangePasswordFormProps = {
 };
 
 export function ChangePasswordForm({ forced = false }: ChangePasswordFormProps) {
-  const router = useRouter();
+  const router = useAppRouter();
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [message, setMessage] = useState<string | null>(null);

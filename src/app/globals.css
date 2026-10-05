@@ -115,6 +115,78 @@ body {
   }
 }
 
+/* Page / content skeletons */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--gray-100) 0%,
+    var(--gray-50) 40%,
+    var(--gray-100) 80%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* Top navigation progress bar */
+.nav-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 100;
+  height: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.nav-progress[data-active="true"] {
+  opacity: 1;
+}
+
+.nav-progress__bar {
+  height: 100%;
+  width: 100%;
+  transform-origin: left;
+  transform: scaleX(0);
+  background: linear-gradient(
+    90deg,
+    var(--brand-500),
+    var(--brand-600),
+    var(--brand-400)
+  );
+  box-shadow: 0 0 8px color-mix(in srgb, var(--brand-600) 45%, transparent);
+  transition: transform 200ms ease-out;
+}
+
+.nav-progress__bar[data-completing="true"] {
+  transition: transform 160ms ease-in;
+}
+
+/* Sidebar link pending hint — delayed reveal avoids flash on fast nav */
+.nav-pending-hint {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.nav-pending-hint[data-pending="true"] {
+  visibility: visible;
+  animation: nav-pending-fade 200ms ease 100ms forwards;
+}
+
+@keyframes nav-pending-fade {
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .motion-enter {
     animation: none;
@@ -122,5 +194,19 @@ body {
 
   .interactive-card {
     transition: none;
+  }
+
+  .skeleton {
+    animation: none;
+    background: var(--gray-100);
+  }
+
+  .nav-progress__bar {
+    transition: none;
+  }
+
+  .nav-pending-hint[data-pending="true"] {
+    animation: none;
+    opacity: 1;
   }
 }

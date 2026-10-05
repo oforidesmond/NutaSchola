@@ -1,10 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useAppRouter } from "@/components/navigation/useAppRouter";
 import { useEffect } from "react";
 
 export function AccessDeniedBanner() {
-  const router = useRouter();
+  const router = useAppRouter();
 
   useEffect(() => {
     router.replace("/dashboard", { scroll: false });

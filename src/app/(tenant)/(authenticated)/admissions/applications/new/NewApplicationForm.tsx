@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useAppRouter } from "@/components/navigation/useAppRouter";
 import { FormEvent, useState } from "react";
 import { ApplicationSource, RelationshipType } from "@prisma/client";
 import { Button, Input, Textarea } from "@/components/ui/primitives";
@@ -28,7 +28,7 @@ export function NewApplicationForm({
   academicYears: AcademicYearOption[];
   defaultAcademicYearId: string;
 }) {
-  const router = useRouter();
+  const router = useAppRouter();
   const [intakeType, setIntakeType] = useState<"NEW" | "EXISTING">("NEW");
   const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);

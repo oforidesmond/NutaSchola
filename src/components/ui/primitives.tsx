@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Spinner } from "./Spinner";
 
 type StatusTone = "neutral" | "info" | "success" | "warning" | "error";
 
@@ -53,10 +54,7 @@ export function Button({
     >
       {loading ? (
         <>
-          <span
-            className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
-            aria-hidden
-          />
+          <Spinner size="md" />
           Please wait…
         </>
       ) : (

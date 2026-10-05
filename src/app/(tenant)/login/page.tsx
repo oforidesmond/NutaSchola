@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 import { VendorCredit } from "@/components/brand/VendorCredit";
 import { AuthShell } from "@/components/layout/AuthShell";
+import { useAppRouter } from "@/components/navigation/useAppRouter";
 import { Button, Input } from "@/components/ui/primitives";
 import { loginAction } from "./actions";
 
 function LoginForm() {
-  const router = useRouter();
+  const router = useAppRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
   const [error, setError] = useState<string | null>(null);

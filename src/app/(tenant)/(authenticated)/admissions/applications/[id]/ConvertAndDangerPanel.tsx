@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useAppRouter } from "@/components/navigation/useAppRouter";
 import { Button, StatusBadge } from "@/components/ui/primitives";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { convertApplicationAction, deleteApplicationAction } from "./actions";
@@ -107,7 +108,7 @@ export function ConvertPanel({
 }
 
 export function DangerZone({ applicationId }: { applicationId: string }) {
-  const router = useRouter();
+  const router = useAppRouter();
   const [open, setOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);

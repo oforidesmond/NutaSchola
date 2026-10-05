@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { brand } from "@/config/brand";
+import { NavPendingHint } from "@/components/navigation/NavPendingHint";
 import { getNavGroupsForRole, isNavItemActive, type NavGroup } from "./nav";
 import { UserMenu } from "./UserMenu";
 
@@ -168,6 +169,7 @@ function SidebarNav({
                     ) : null}
                     <Icon className="h-4 w-4 shrink-0" aria-hidden />
                     {item.label}
+                    <NavPendingHint />
                   </Link>
                 </li>
               );
