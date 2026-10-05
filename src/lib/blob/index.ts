@@ -95,3 +95,67 @@ export async function listRecentBlobs(
     return fail("BLOB_LIST_FAILED", "Could not list Neon Object Storage objects.");
   }
 }
+
+/** Best-effort extract of the object key from a stored blob URL. */
+export function blobKeyFromUrl(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  const marker = `/${BLOB_BUCKET}/`;
+  const idx = trimmed.indexOf(marker);
+  if (idx >= 0) {
+    const after = trimmed.slice(idx + marker.length).split("?")[0];
+    return after || null;
+  }
+
+  // Relative keys stored as-is
+  if (!trimmed.includes("://") && trimmed.includes("/")) {
+    return trimmed.split("?")[0];
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const path = parsed.pathname.replace(/^\//, "");
+    if (path.startsWith(`${BLOB_BUCKET}/`)) {
+      return path.slice(BLOB_BUCKET.length + 1) || null;
+    }
+    // Path may already be the key (e.g. admissions/...)
+    if (path.startsWith("admissions/") || path.startsWith("smoke/")) {
+      return path;
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
+
+export async function deleteBlob(
+  keyOrUrl: string,
+): Promise<ActionResult<{ deleted: true }>> {
+  if (!isBlobConfigured()) {
+    return fail(
+      "BLOB_NOT_CONFIGURED",
+      "Neon Object Storage is not configured.",
+    );
+  }
+
+  const key = blobKeyFromUrl(keyOrUrl) ?? (keyOrUrl.includes("/") && !keyOrUrl.includes("://")
+    ? keyOrUrl
+    : null);
+  if (!key) {
+    return fail("VALIDATION_ERROR", "Could not resolve storage key for this file.");
+  }
+
+  try {
+    const files = getFiles();
+    await files.delete(key);
+    return ok({ deleted: true });
+  } catch (error) {
+    logger.error("blob.delete_failed", {
+      error: error instanceof Error ? error.message : String(error),
+      key,
+    });
+    return fail("BLOB_DELETE_FAILED", "Could not delete file from storage.");
+  }
+}

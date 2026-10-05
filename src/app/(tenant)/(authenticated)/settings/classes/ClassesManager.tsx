@@ -1,20 +1,33 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useTransition } from "react";
 import { SchoolLevel } from "@prisma/client";
-import { Pencil, X } from "lucide-react";
+import { Pencil, Trash2, X } from "lucide-react";
 import { Button, Input } from "@/components/ui/primitives";
 import { Card, Select } from "@/components/ui/Card";
-import { createClassLevel, createSection, updateClassLevel } from "./actions";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  createClassLevel,
+  createSection,
+  deleteClassLevel,
+  deleteSection,
+  updateClassLevel,
+  updateSection,
+} from "./actions";
 
+type SectionRow = { id: string; name: string };
 type LevelRow = {
   id: string;
   name: string;
   levelType: SchoolLevel;
   order: number;
   capacity: number | null;
-  sections: { id: string; name: string }[];
+  sections: SectionRow[];
 };
+
+type PendingDelete =
+  | { kind: "level"; id: string; name: string }
+  | { kind: "section"; id: string; name: string };
 
 const LEVEL_OPTIONS = Object.values(SchoolLevel).map((opt) => ({
   value: opt,
@@ -31,7 +44,10 @@ export function ClassesManager({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [pending, startTransition] = useTransition();
 
   async function onCreateLevel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -104,8 +120,6 @@ export function ClassesManager({
             ) : (
               levels.map((level) => {
                 const isEditing = !readOnly && editingId === level.id;
-                const sectionsSummary =
-                  level.sections.map((s) => s.name).join(", ") || "—";
 
                 return (
                   <tr
@@ -177,7 +191,7 @@ export function ClassesManager({
                             </Button>
                           </div>
                           <p className="text-[13px] text-[var(--gray-500)]">
-                            Level type: {level.levelType} · Sections: {sectionsSummary}
+                            Level type: {level.levelType}
                           </p>
                         </form>
                       </td>
@@ -187,7 +201,96 @@ export function ClassesManager({
                           {level.name}
                         </td>
                         <td className="px-4 py-3 text-[var(--gray-600)]">{level.levelType}</td>
-                        <td className="px-4 py-3 text-[var(--gray-600)]">{sectionsSummary}</td>
+                        <td className="px-4 py-3 text-[var(--gray-600)]">
+                          {level.sections.length === 0 ? (
+                            "—"
+                          ) : (
+                            <ul className="flex flex-col gap-1">
+                              {level.sections.map((section) => {
+                                const isEditingSection =
+                                  !readOnly && editingSectionId === section.id;
+                                if (isEditingSection) {
+                                  return (
+                                    <li key={section.id}>
+                                      <form
+                                        className="flex flex-wrap items-end gap-2"
+                                        onSubmit={async (event) => {
+                                          event.preventDefault();
+                                          setError(null);
+                                          setSaving(true);
+                                          const result = await updateSection(
+                                            new FormData(event.currentTarget),
+                                          );
+                                          setSaving(false);
+                                          if (!result.ok) {
+                                            setError(result.error.message);
+                                            return;
+                                          }
+                                          setMessage("Section updated.");
+                                          setEditingSectionId(null);
+                                        }}
+                                      >
+                                        <input type="hidden" name="id" value={section.id} />
+                                        <Input
+                                          label="Section"
+                                          name="name"
+                                          defaultValue={section.name}
+                                          className="w-28"
+                                          required
+                                        />
+                                        <Button type="submit" loading={saving}>
+                                          Save
+                                        </Button>
+                                        <button
+                                          type="button"
+                                          className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--gray-600)] hover:bg-[var(--gray-100)]"
+                                          aria-label="Cancel section edit"
+                                          onClick={() => setEditingSectionId(null)}
+                                        >
+                                          <X className="h-4 w-4" aria-hidden />
+                                        </button>
+                                      </form>
+                                    </li>
+                                  );
+                                }
+                                return (
+                                  <li
+                                    key={section.id}
+                                    className="flex flex-wrap items-center gap-1"
+                                  >
+                                    <span>{section.name}</span>
+                                    {!readOnly ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="focus-ring inline-flex min-h-8 min-w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
+                                          aria-label={`Edit section ${section.name}`}
+                                          onClick={() => setEditingSectionId(section.id)}
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" aria-hidden />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="focus-ring inline-flex min-h-8 min-w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--error-700)] hover:bg-[var(--error-50)]"
+                                          aria-label={`Delete section ${section.name}`}
+                                          onClick={() =>
+                                            setPendingDelete({
+                                              kind: "section",
+                                              id: section.id,
+                                              name: section.name,
+                                            })
+                                          }
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                                        </button>
+                                      </>
+                                    ) : null}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </td>
                         <td className="px-4 py-3 font-variant-numeric tabular-nums text-[var(--gray-600)]">
                           {level.capacity ?? "—"}
                         </td>
@@ -196,14 +299,30 @@ export function ClassesManager({
                         </td>
                         {!readOnly ? (
                           <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
-                              aria-label={`Edit ${level.name}`}
-                              onClick={() => setEditingId(level.id)}
-                            >
-                              <Pencil className="h-4 w-4" aria-hidden />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
+                                aria-label={`Edit ${level.name}`}
+                                onClick={() => setEditingId(level.id)}
+                              >
+                                <Pencil className="h-4 w-4" aria-hidden />
+                              </button>
+                              <button
+                                type="button"
+                                className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--error-700)] hover:bg-[var(--error-50)]"
+                                aria-label={`Delete ${level.name}`}
+                                onClick={() =>
+                                  setPendingDelete({
+                                    kind: "level",
+                                    id: level.id,
+                                    name: level.name,
+                                  })
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" aria-hidden />
+                              </button>
+                            </div>
                           </td>
                         ) : null}
                       </>
@@ -263,6 +382,51 @@ export function ClassesManager({
             </form>
           </Card>
         </div>
+      ) : null}
+
+      {!readOnly ? (
+        <ConfirmDialog
+          open={Boolean(pendingDelete)}
+          title={
+            pendingDelete?.kind === "section"
+              ? "Delete this section?"
+              : "Delete this class level?"
+          }
+          consequence={
+            pendingDelete?.kind === "section"
+              ? `“${pendingDelete.name}” will be removed. This cannot be undone.`
+              : pendingDelete
+                ? `“${pendingDelete.name}” and its empty sections will be removed. Classes with enrollments or applications cannot be deleted.`
+                : ""
+          }
+          confirmLabel={pendingDelete?.kind === "section" ? "Delete section" : "Delete class"}
+          destructive
+          loading={pending}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            if (!pendingDelete) return;
+            startTransition(async () => {
+              const result =
+                pendingDelete.kind === "section"
+                  ? await deleteSection(pendingDelete.id)
+                  : await deleteClassLevel(pendingDelete.id);
+              setPendingDelete(null);
+              if (!result.ok) {
+                setError(result.error.message);
+                return;
+              }
+              if (pendingDelete.kind === "level" && editingId === pendingDelete.id) {
+                setEditingId(null);
+              }
+              if (pendingDelete.kind === "section" && editingSectionId === pendingDelete.id) {
+                setEditingSectionId(null);
+              }
+              setMessage(
+                pendingDelete.kind === "section" ? "Section deleted." : "Class level deleted.",
+              );
+            });
+          }}
+        />
       ) : null}
     </div>
   );

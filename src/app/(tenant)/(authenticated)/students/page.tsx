@@ -1,14 +1,25 @@
 import Link from "next/link";
-import { PageHeader } from "@/components/ui/primitives";
+import { PageHeader, StatusBadge } from "@/components/ui/primitives";
 import { requirePageAccess } from "@/lib/auth/session";
 import { ACTIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
 
-export default async function StudentsListPage() {
+export default async function StudentsListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ showInactive?: string }>;
+}) {
   const { tenant } = await requirePageAccess(ACTIONS.FEES_READ);
+  const { showInactive } = await searchParams;
+  const includeInactive = showInactive === "1";
 
   const students = await prisma.student.findMany({
-    where: { schoolId: tenant.schoolId, deletedAt: null, isActive: true },
+    where: {
+      schoolId: tenant.schoolId,
+      ...(includeInactive
+        ? {}
+        : { deletedAt: null, isActive: true }),
+    },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     take: 200,
   });
@@ -23,33 +34,54 @@ export default async function StudentsListPage() {
     <div>
       <PageHeader
         title="Students"
-        description="Enrolled students. Open fees to view and record school fee payments."
+        description="Enrolled students. Open a student to edit their profile or record school fee payments."
+        action={
+          <Link
+            href={includeInactive ? "/students" : "/students?showInactive=1"}
+            className="text-[15px] font-semibold text-[var(--brand-700)] hover:underline"
+          >
+            {includeInactive ? "Hide inactive" : "Show inactive"}
+          </Link>
+        }
       />
       <ul className="mt-4 divide-y divide-[var(--gray-100)] rounded-[var(--radius-md)] border border-[var(--gray-100)] bg-[var(--white)]">
         {students.length === 0 ? (
           <li className="px-4 py-6 text-[15px] text-[var(--gray-600)]">
-            No enrolled students yet. Convert an admitted applicant to create one.
+            {includeInactive
+              ? "No students found."
+              : "No enrolled students yet. Convert an admitted applicant to create one."}
           </li>
         ) : (
-          students.map((s) => (
-            <li key={s.id}>
-              <Link
-                href={`/students/${s.id}/fees`}
-                className="interactive-row flex items-center justify-between px-4 py-3"
-              >
-                <span className="font-medium text-[var(--gray-900)]">
-                  {s.firstName} {s.lastName}
-                </span>
-                <span className="text-[14px] text-[var(--gray-600)]">
-                  {s.admissionNumber}
-                  {s.currentClassLevelId
-                    ? ` · ${levelName.get(s.currentClassLevelId) ?? ""}`
-                    : ""}
-                  {" · Fees"}
-                </span>
-              </Link>
-            </li>
-          ))
+          students.map((s) => {
+            const inactive = !s.isActive || Boolean(s.deletedAt);
+            return (
+              <li key={s.id}>
+                <div className="interactive-row flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                  <Link
+                    href={`/students/${s.id}${inactive ? "?showInactive=1" : ""}`}
+                    className="min-w-0 flex-1"
+                  >
+                    <span className="flex flex-wrap items-center gap-2 font-medium text-[var(--gray-900)]">
+                      {s.lastName}, {s.firstName}
+                      {inactive ? <StatusBadge label="Inactive" tone="warning" /> : null}
+                    </span>
+                    <span className="mt-0.5 block text-[13px] text-[var(--gray-500)]">
+                      {s.admissionNumber}
+                      {s.currentClassLevelId
+                        ? ` · ${levelName.get(s.currentClassLevelId) ?? "—"}`
+                        : ""}
+                    </span>
+                  </Link>
+                  <Link
+                    href={`/students/${s.id}/fees`}
+                    className="shrink-0 text-[15px] font-semibold text-[var(--brand-700)] hover:underline"
+                  >
+                    Fees
+                  </Link>
+                </div>
+              </li>
+            );
+          })
         )}
       </ul>
     </div>

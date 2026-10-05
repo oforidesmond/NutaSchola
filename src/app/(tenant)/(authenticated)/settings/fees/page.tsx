@@ -4,8 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { requirePageAccess } from "@/lib/auth/session";
 import { ACTIONS, can } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
-import { formatGhs } from "@/lib/format/currency";
-import { AdmissionFeeForm } from "./AdmissionFeeForm";
+import { AdmissionFeeSetup } from "./AdmissionFeeForm";
 import { SchoolFeesTable, type SchoolFeeRow } from "./SchoolFeesTable";
 import { ReadOnlyBanner } from "@/components/ui/ReadOnlyBanner";
 
@@ -22,8 +21,6 @@ export default async function FeesSettingsPage({
     where: { schoolId: tenant.schoolId, feeType: "ADMISSION" },
     include: { items: { orderBy: { name: "asc" } } },
   });
-
-  const primaryItem = feeStructure?.items[0] ?? null;
 
   const terms = await prisma.term.findMany({
     where: { schoolId: tenant.schoolId },
@@ -55,17 +52,13 @@ export default async function FeesSettingsPage({
       classLevelId: null,
       classLevelName: "All levels (default)",
       feeStructureId: null,
-      feeItemId: null,
-      itemName: "Tuition",
-      amount: "500.00",
+      items: [],
     },
     ...classLevels.map((level) => ({
       classLevelId: level.id,
       classLevelName: level.name,
       feeStructureId: null as string | null,
-      feeItemId: null as string | null,
-      itemName: "Tuition",
-      amount: "500.00",
+      items: [] as SchoolFeeRow["items"],
     })),
   ];
 
@@ -73,12 +66,13 @@ export default async function FeesSettingsPage({
     const match = schoolFeeStructures.find(
       (s) => (s.classLevelId ?? null) === row.classLevelId,
     );
-    const item = match?.items[0];
-    if (match && item) {
+    if (match) {
       row.feeStructureId = match.id;
-      row.feeItemId = item.id;
-      row.itemName = item.name;
-      row.amount = item.amount.toFixed(2);
+      row.items = match.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        amount: item.amount.toFixed(2),
+      }));
     }
   }
 
@@ -100,44 +94,25 @@ export default async function FeesSettingsPage({
         <ReadOnlyBanner message="Only school admins and accountants can change fee amounts." />
       ) : null}
 
-      {!feeStructure || !primaryItem ? (
-        <Card variant="flat" className="mt-4 max-w-3xl">
-          <p className="text-base font-medium text-[var(--gray-800)]">
-            Admission fee not set up yet
-          </p>
-          <p className="mt-2 text-[15px] text-[var(--gray-600)]">
-            Re-run the school seed so the default admission fee is created.
-          </p>
-        </Card>
-      ) : (
-        <Card className="mt-2 max-w-3xl">
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <div>
-              <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">
-                Admission fee
-              </h2>
-              <p className="mt-1 text-[15px] text-[var(--gray-600)]">
-                {feeStructure.name}
-              </p>
-            </div>
-            <p className="font-variant-numeric text-[22px] font-semibold tabular-nums text-[var(--gray-900)]">
-              {formatGhs(primaryItem.amount.toString())}
-            </p>
-          </div>
-          <AdmissionFeeForm
-            feeItemId={primaryItem.id}
-            itemName={primaryItem.name}
-            amount={primaryItem.amount.toFixed(2)}
-            readOnly={!canManage}
-          />
-        </Card>
-      )}
+      <AdmissionFeeSetup
+        feeStructureId={feeStructure?.id ?? null}
+        structureName={feeStructure?.name ?? null}
+        items={
+          feeStructure?.items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            amount: item.amount.toFixed(2),
+          })) ?? []
+        }
+        readOnly={!canManage}
+      />
 
       <Card className="mt-8">
         <div>
           <h2 className="text-[20px] font-semibold text-[var(--gray-900)]">School fees</h2>
           <p className="mt-1 text-[15px] text-[var(--gray-600)]">
             Per term and class level. A class-level row overrides the &quot;All levels&quot; default.
+            Add multiple fee lines (tuition, PTA, feeding) per structure.
           </p>
         </div>
         {terms.length > 0 ? (

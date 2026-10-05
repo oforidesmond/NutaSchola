@@ -91,3 +91,107 @@ export async function linkGuardianToApplication(
     },
   });
 }
+
+/**
+ * Update a guardian's contact fields for this school. Phone must remain unique
+ * within the tenant — changing to another guardian's phone is rejected.
+ */
+export async function updateGuardianRecord(
+  tx: Tx,
+  schoolId: string,
+  guardianId: string,
+  input: GuardianInput,
+) {
+  const phone = input.phone.trim();
+  if (!phone) {
+    throw new AppError("VALIDATION_ERROR", "Guardian phone is required.", {
+      fieldErrors: { phone: ["Guardian phone is required."] },
+    });
+  }
+
+  const existing = await tx.guardian.findFirst({
+    where: { id: guardianId, schoolId },
+  });
+  if (!existing) {
+    throw new AppError("NOT_FOUND", "Guardian not found.", { status: 404 });
+  }
+
+  const phoneClash = await tx.guardian.findFirst({
+    where: { schoolId, phone, id: { not: guardianId } },
+  });
+  if (phoneClash) {
+    throw new AppError(
+      "CONFLICT",
+      "Another guardian already uses this phone number.",
+      { fieldErrors: { phone: ["Phone already used by another guardian."] } },
+    );
+  }
+
+  return tx.guardian.update({
+    where: { id: guardianId },
+    data: {
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      phone,
+      altPhone: input.altPhone?.trim() || null,
+      email: input.email?.trim() || null,
+      occupation: input.occupation?.trim() || null,
+      address: input.address?.trim() || null,
+    },
+  });
+}
+
+export async function setPrimaryApplicationGuardian(
+  tx: Tx,
+  applicationId: string,
+  applicationGuardianId: string,
+) {
+  const link = await tx.applicationGuardian.findFirst({
+    where: { id: applicationGuardianId, applicationId },
+  });
+  if (!link) {
+    throw new AppError("NOT_FOUND", "Guardian link not found.", { status: 404 });
+  }
+
+  await tx.applicationGuardian.updateMany({
+    where: { applicationId },
+    data: { isPrimaryContact: false },
+  });
+  await tx.applicationGuardian.update({
+    where: { id: applicationGuardianId },
+    data: { isPrimaryContact: true },
+  });
+}
+
+/**
+ * Remove the application↔guardian link only. Does not delete the Guardian row
+ * (it may still be linked to siblings or students).
+ */
+export async function unlinkGuardianFromApplication(
+  tx: Tx,
+  applicationId: string,
+  applicationGuardianId: string,
+) {
+  const link = await tx.applicationGuardian.findFirst({
+    where: { id: applicationGuardianId, applicationId },
+  });
+  if (!link) {
+    throw new AppError("NOT_FOUND", "Guardian link not found.", { status: 404 });
+  }
+
+  const wasPrimary = link.isPrimaryContact;
+  await tx.applicationGuardian.delete({ where: { id: applicationGuardianId } });
+
+  if (wasPrimary) {
+    const next = await tx.applicationGuardian.findFirst({
+      where: { applicationId },
+      orderBy: { id: "asc" },
+    });
+    if (next) {
+      await tx.applicationGuardian.update({
+        where: { id: next.id },
+        data: { isPrimaryContact: true },
+      });
+    }
+  }
+}

@@ -151,6 +151,238 @@ export async function setCurrentTerm(
   }
 }
 
+export async function updateAcademicYear(
+  formData: FormData,
+): Promise<ActionResult<{ saved: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ACADEMIC_MANAGE);
+    const id = String(formData.get("id") ?? "");
+    const parsed = yearSchema.safeParse({
+      name: formData.get("name"),
+      startDate: formData.get("startDate"),
+      endDate: formData.get("endDate"),
+    });
+    if (!parsed.success) {
+      return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", fieldErrorsFromZod(parsed.error));
+    }
+
+    const existing = await prisma.academicYear.findFirst({
+      where: { id, schoolId: tenant.schoolId },
+    });
+    if (!existing) return fail("NOT_FOUND", "Academic year not found.");
+
+    await prisma.academicYear.update({
+      where: { id },
+      data: {
+        name: parsed.data.name,
+        startDate: new Date(parsed.data.startDate),
+        endDate: new Date(parsed.data.endDate),
+      },
+    });
+    revalidatePath("/settings/academic");
+    revalidatePath("/settings/school");
+    return ok({ saved: true });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
+export async function deleteAcademicYear(
+  yearId: string,
+): Promise<ActionResult<{ deleted: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ACADEMIC_MANAGE);
+    const existing = await prisma.academicYear.findFirst({
+      where: { id: yearId, schoolId: tenant.schoolId },
+      include: {
+        _count: {
+          select: {
+            enrollments: true,
+            admissionApplications: true,
+            invoices: true,
+            terms: true,
+          },
+        },
+      },
+    });
+    if (!existing) return fail("NOT_FOUND", "Academic year not found.");
+
+    if (existing._count.enrollments > 0) {
+      return fail(
+        "CONFLICT",
+        "Cannot delete this year because students are enrolled in it.",
+      );
+    }
+    if (existing._count.admissionApplications > 0) {
+      return fail(
+        "CONFLICT",
+        "Cannot delete this year because admission applications reference it.",
+      );
+    }
+    if (existing._count.invoices > 0) {
+      return fail(
+        "CONFLICT",
+        "Cannot delete this year because invoices reference it.",
+      );
+    }
+
+    if (existing.isCurrent) {
+      const otherYears = await prisma.academicYear.count({
+        where: { schoolId: tenant.schoolId, id: { not: yearId } },
+      });
+      if (otherYears === 0) {
+        return fail(
+          "CONFLICT",
+          "Cannot delete the only academic year. Create another year first.",
+        );
+      }
+      return fail(
+        "CONFLICT",
+        "Cannot delete the current academic year. Make another year current first.",
+      );
+    }
+
+    // Terms cascade; block if any term still has invoices/attendance/exams.
+    const blockedTerms = await prisma.term.findMany({
+      where: { academicYearId: yearId, schoolId: tenant.schoolId },
+      include: {
+        _count: {
+          select: {
+            invoices: true,
+            attendanceRecords: true,
+            exams: true,
+            feeStructures: true,
+          },
+        },
+      },
+    });
+    for (const term of blockedTerms) {
+      if (
+        term._count.invoices > 0 ||
+        term._count.attendanceRecords > 0 ||
+        term._count.exams > 0 ||
+        term._count.feeStructures > 0
+      ) {
+        return fail(
+          "CONFLICT",
+          `Cannot delete this year because term “${term.name}” is still in use.`,
+        );
+      }
+    }
+
+    await prisma.academicYear.delete({ where: { id: yearId } });
+    revalidatePath("/settings/academic");
+    revalidatePath("/settings/school");
+    return ok({ deleted: true });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
+export async function updateTerm(
+  formData: FormData,
+): Promise<ActionResult<{ saved: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ACADEMIC_MANAGE);
+    const id = String(formData.get("id") ?? "");
+    const parsed = z
+      .object({
+        name: z.string().min(1, "Term name is required"),
+        startDate: z.string().min(1),
+        endDate: z.string().min(1),
+      })
+      .safeParse({
+        name: formData.get("name"),
+        startDate: formData.get("startDate"),
+        endDate: formData.get("endDate"),
+      });
+    if (!parsed.success) {
+      return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", fieldErrorsFromZod(parsed.error));
+    }
+
+    const existing = await prisma.term.findFirst({
+      where: { id, schoolId: tenant.schoolId },
+    });
+    if (!existing) return fail("NOT_FOUND", "Term not found.");
+
+    await prisma.term.update({
+      where: { id },
+      data: {
+        name: parsed.data.name,
+        startDate: new Date(parsed.data.startDate),
+        endDate: new Date(parsed.data.endDate),
+      },
+    });
+    revalidatePath("/settings/academic");
+    return ok({ saved: true });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
+export async function deleteTerm(
+  termId: string,
+): Promise<ActionResult<{ deleted: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ACADEMIC_MANAGE);
+    const existing = await prisma.term.findFirst({
+      where: { id: termId, schoolId: tenant.schoolId },
+      include: {
+        _count: {
+          select: {
+            invoices: true,
+            attendanceRecords: true,
+            exams: true,
+            feeStructures: true,
+          },
+        },
+      },
+    });
+    if (!existing) return fail("NOT_FOUND", "Term not found.");
+
+    if (existing._count.invoices > 0) {
+      return fail("CONFLICT", "Cannot delete this term because invoices reference it.");
+    }
+    if (existing._count.attendanceRecords > 0) {
+      return fail(
+        "CONFLICT",
+        "Cannot delete this term because attendance records reference it.",
+      );
+    }
+    if (existing._count.exams > 0) {
+      return fail("CONFLICT", "Cannot delete this term because exams reference it.");
+    }
+    if (existing._count.feeStructures > 0) {
+      return fail(
+        "CONFLICT",
+        "Cannot delete this term because fee structures reference it.",
+      );
+    }
+
+    if (existing.isCurrent) {
+      const otherTerms = await prisma.term.count({
+        where: { schoolId: tenant.schoolId, id: { not: termId } },
+      });
+      if (otherTerms === 0) {
+        return fail(
+          "CONFLICT",
+          "Cannot delete the only current term. Create another term and make it current first.",
+        );
+      }
+      return fail(
+        "CONFLICT",
+        "Cannot delete the current term. Make another term current first.",
+      );
+    }
+
+    await prisma.term.delete({ where: { id: termId } });
+    revalidatePath("/settings/academic");
+    return ok({ deleted: true });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
 function toFailArgs(error: unknown): [string, string, Record<string, string[]>?] {
   const actionError = toActionError(error);
   return [actionError.code, actionError.message, actionError.fieldErrors];

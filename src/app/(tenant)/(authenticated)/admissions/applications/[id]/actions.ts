@@ -16,7 +16,7 @@ import { recordStageChange } from "@/lib/admissions/history";
 import { canConvertFromStage, MANUAL_STAGES } from "@/lib/admissions/stages";
 import { convertApplicantToStudent } from "@/lib/admissions/convert";
 import { nextAdmissionNumber } from "@/lib/admissions/numbering";
-import { findOrCreateGuardian, linkGuardianToApplication } from "@/lib/admissions/guardians";
+import { findOrCreateGuardian, linkGuardianToApplication, setPrimaryApplicationGuardian, unlinkGuardianFromApplication, updateGuardianRecord } from "@/lib/admissions/guardians";
 import { notifyStageChange, notifyAdmissionFeeDue, notifyAdmissionFeePayment, notifyAdmissionFeeArrears } from "@/lib/admissions/notify";
 import { resolvePrimaryGuardianContact, normalizeGhPhone } from "@/lib/sms";
 import { PAYMENT_METHOD_LABELS } from "@/lib/admissions/labels";
@@ -206,6 +206,148 @@ export async function addGuardianToApplication(
 
     revalidateApplication(application.id);
     return ok({ guardianId });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
+const updateGuardianSchema = addGuardianSchema.extend({
+  applicationGuardianId: z.string().min(1),
+  guardianId: z.string().min(1),
+});
+
+export async function updateGuardianOnApplication(
+  formData: FormData,
+): Promise<ActionResult<{ saved: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ADMISSIONS_UPDATE);
+    const parsed = updateGuardianSchema.safeParse({
+      applicationId: formData.get("applicationId"),
+      applicationGuardianId: formData.get("applicationGuardianId"),
+      guardianId: formData.get("guardianId"),
+      firstName: formData.get("firstName"),
+      lastName: formData.get("lastName"),
+      phone: formData.get("phone"),
+      altPhone: formData.get("altPhone") || undefined,
+      email: formData.get("email") || "",
+      occupation: formData.get("occupation") || undefined,
+      address: formData.get("address") || undefined,
+      relationship: formData.get("relationship"),
+      isPrimaryContact: formData.get("isPrimaryContact") === "on",
+    });
+    if (!parsed.success) {
+      return fail(
+        "VALIDATION_ERROR",
+        "Please fix the highlighted fields.",
+        fieldErrorsFromZod(parsed.error),
+      );
+    }
+
+    const application = await loadApplicationOrThrow(tenant.schoolId, parsed.data.applicationId);
+    const data = parsed.data;
+
+    const link = await prisma.applicationGuardian.findFirst({
+      where: {
+        id: data.applicationGuardianId,
+        applicationId: application.id,
+        guardianId: data.guardianId,
+      },
+      include: { guardian: true },
+    });
+    if (!link || link.guardian.schoolId !== tenant.schoolId) {
+      return fail("NOT_FOUND", "Guardian link not found.");
+    }
+
+    const phone = normalizeGhPhone(data.phone);
+    if (!phone) {
+      return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", {
+        phone: ["Invalid Ghana phone number"],
+      });
+    }
+
+    let altPhone: string | null = null;
+    if (data.altPhone?.trim()) {
+      const normalizedAlt = normalizeGhPhone(data.altPhone);
+      if (!normalizedAlt) {
+        return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", {
+          altPhone: ["Invalid Ghana phone number"],
+        });
+      }
+      altPhone = normalizedAlt;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await updateGuardianRecord(tx, tenant.schoolId, data.guardianId, {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone,
+        altPhone,
+        email: data.email,
+        occupation: data.occupation,
+        address: data.address,
+      });
+
+      if (data.isPrimaryContact) {
+        await setPrimaryApplicationGuardian(tx, application.id, data.applicationGuardianId);
+      }
+
+      await tx.applicationGuardian.update({
+        where: { id: data.applicationGuardianId },
+        data: {
+          relationship: data.relationship,
+          ...(data.isPrimaryContact ? {} : { isPrimaryContact: false }),
+        },
+      });
+    });
+
+    revalidateApplication(application.id);
+    return ok({ saved: true });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
+export async function setPrimaryGuardianAction(
+  formData: FormData,
+): Promise<ActionResult<{ saved: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ADMISSIONS_UPDATE);
+    const applicationId = String(formData.get("applicationId") ?? "");
+    const applicationGuardianId = String(formData.get("applicationGuardianId") ?? "");
+    if (!applicationId || !applicationGuardianId) {
+      return fail("VALIDATION_ERROR", "Missing guardian link.");
+    }
+
+    const application = await loadApplicationOrThrow(tenant.schoolId, applicationId);
+    await prisma.$transaction(async (tx) => {
+      await setPrimaryApplicationGuardian(tx, application.id, applicationGuardianId);
+    });
+
+    revalidateApplication(application.id);
+    return ok({ saved: true });
+  } catch (error) {
+    return fail(...toFailArgs(error));
+  }
+}
+
+export async function unlinkGuardianFromApplicationAction(
+  formData: FormData,
+): Promise<ActionResult<{ deleted: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ADMISSIONS_UPDATE);
+    const applicationId = String(formData.get("applicationId") ?? "");
+    const applicationGuardianId = String(formData.get("applicationGuardianId") ?? "");
+    if (!applicationId || !applicationGuardianId) {
+      return fail("VALIDATION_ERROR", "Missing guardian link.");
+    }
+
+    const application = await loadApplicationOrThrow(tenant.schoolId, applicationId);
+    await prisma.$transaction(async (tx) => {
+      await unlinkGuardianFromApplication(tx, application.id, applicationGuardianId);
+    });
+
+    revalidateApplication(application.id);
+    return ok({ deleted: true });
   } catch (error) {
     return fail(...toFailArgs(error));
   }

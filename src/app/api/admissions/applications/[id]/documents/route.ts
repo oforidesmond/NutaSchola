@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { requireAction } from "@/lib/auth/session";
 import { ACTIONS } from "@/lib/permissions";
 import { AppError, toActionError } from "@/lib/errors";
-import { storeApplicationDocument } from "@/lib/admissions/documents";
+import {
+  deleteApplicationDocument,
+  storeApplicationDocument,
+} from "@/lib/admissions/documents";
 
 export async function POST(
   request: Request,
@@ -39,6 +42,55 @@ export async function POST(
           : result.error.code === "NOT_FOUND"
             ? 404
             : 400;
+      return NextResponse.json(result, { status });
+    }
+
+    revalidatePath(`/admissions/applications/${applicationId}`);
+    revalidatePath("/admissions/applications");
+    revalidatePath("/admissions");
+
+    return NextResponse.json(result);
+  } catch (error) {
+    const actionError = toActionError(error);
+    const status = error instanceof AppError ? error.status : 500;
+    return NextResponse.json({ ok: false, error: actionError }, { status });
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id: applicationId } = await context.params;
+    const { tenant } = await requireAction(ACTIONS.ADMISSIONS_DOCUMENTS);
+
+    const url = new URL(request.url);
+    let documentId = url.searchParams.get("documentId") ?? "";
+    if (!documentId) {
+      try {
+        const body = (await request.json()) as { documentId?: string };
+        documentId = String(body.documentId ?? "");
+      } catch {
+        documentId = "";
+      }
+    }
+
+    if (!documentId) {
+      return NextResponse.json(
+        { ok: false, error: { code: "VALIDATION_ERROR", message: "documentId is required." } },
+        { status: 400 },
+      );
+    }
+
+    const result = await deleteApplicationDocument({
+      schoolId: tenant.schoolId,
+      applicationId,
+      documentId,
+    });
+
+    if (!result.ok) {
+      const status = result.error.code === "NOT_FOUND" ? 404 : 400;
       return NextResponse.json(result, { status });
     }
 

@@ -1,9 +1,11 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DocumentType } from "@prisma/client";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/primitives";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { APPLICATION_DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from "@/lib/admissions/labels";
 import { formatDateAccra } from "@/lib/format/currency";
 
@@ -29,6 +31,8 @@ export function DocumentsPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<DocumentRow | null>(null);
+  const [pending, startTransition] = useTransition();
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,14 +78,26 @@ export function DocumentsPanel({
                   {doc.fileName} · {formatDateAccra(doc.createdAt)}
                 </p>
               </div>
-              <a
-                href={doc.blobUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] px-3 text-[15px] font-semibold text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
-              >
-                View
-              </a>
+              <div className="flex items-center gap-1">
+                <a
+                  href={doc.blobUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] px-3 text-[15px] font-semibold text-[var(--brand-700)] hover:bg-[var(--brand-50)]"
+                >
+                  View
+                </a>
+                {!readOnly ? (
+                  <button
+                    type="button"
+                    className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--error-700)] hover:bg-[var(--error-50)]"
+                    aria-label={`Delete ${DOCUMENT_TYPE_LABELS[doc.type]}`}
+                    onClick={() => setPendingDelete(doc)}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
@@ -134,6 +150,41 @@ export function DocumentsPanel({
             Upload document
           </Button>
         </form>
+      ) : null}
+
+      {!readOnly ? (
+        <ConfirmDialog
+          open={Boolean(pendingDelete)}
+          title="Delete this document?"
+          consequence={
+            pendingDelete
+              ? `“${DOCUMENT_TYPE_LABELS[pendingDelete.type]}” (${pendingDelete.fileName}) will be removed permanently.`
+              : ""
+          }
+          confirmLabel="Delete document"
+          destructive
+          loading={pending}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            if (!pendingDelete) return;
+            startTransition(async () => {
+              const response = await fetch(
+                `/api/admissions/applications/${applicationId}/documents?documentId=${encodeURIComponent(pendingDelete.id)}`,
+                { method: "DELETE" },
+              );
+              const result = (await response.json()) as
+                | { ok: true }
+                | { ok: false; error: { message: string } };
+              setPendingDelete(null);
+              if (!result.ok) {
+                setError(result.error.message);
+                return;
+              }
+              setMessage("Document deleted.");
+              router.refresh();
+            });
+          }}
+        />
       ) : null}
     </section>
   );

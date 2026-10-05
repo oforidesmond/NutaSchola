@@ -59,8 +59,8 @@ export default async function StudentFeesPage({
       <div>
         <Breadcrumb
           items={[
-            { label: "Students", href: "/dashboard" },
-            { label: fullName },
+            { label: "Students", href: "/students" },
+            { label: fullName, href: `/students/${student.id}` },
             { label: "Fees" },
           ]}
         />

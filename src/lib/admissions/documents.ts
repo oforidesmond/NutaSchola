@@ -5,7 +5,8 @@ import {
 import { prisma } from "@/lib/db/prisma";
 import { AppError, fail, ok, type ActionResult } from "@/lib/errors";
 import { assertDocumentEntity } from "@/lib/documents/validate";
-import { isBlobConfigured, uploadBlob } from "@/lib/blob";
+import { deleteBlob, isBlobConfigured, uploadBlob } from "@/lib/blob";
+import { logger } from "@/lib/errors/logger";
 
 const ALLOWED_DOCUMENT_TYPES: DocumentType[] = [
   "BIRTH_CERTIFICATE",
@@ -86,4 +87,65 @@ export async function storeApplicationDocument(input: {
   });
 
   return ok({ id: document.id });
+}
+
+/**
+ * Delete a document row and its blob. Clears application photoUrl when the
+ * deleted file is the current passport photo.
+ */
+export async function deleteApplicationDocument(input: {
+  schoolId: string;
+  applicationId: string;
+  documentId: string;
+}): Promise<ActionResult<{ deleted: true }>> {
+  const { schoolId, applicationId, documentId } = input;
+
+  const document = await prisma.document.findFirst({
+    where: {
+      id: documentId,
+      schoolId,
+      entityType: DocumentEntityType.ADMISSION_APPLICATION,
+      entityId: applicationId,
+    },
+  });
+  if (!document) {
+    return fail("NOT_FOUND", "Document not found.");
+  }
+
+  const application = await prisma.admissionApplication.findFirst({
+    where: { id: applicationId, schoolId, deletedAt: null },
+    select: { id: true, photoUrl: true },
+  });
+  if (!application) {
+    return fail("NOT_FOUND", "Application not found.");
+  }
+
+  // Best-effort blob delete — still remove DB row if storage is missing/fails
+  // so staff can clean up orphaned metadata.
+  if (isBlobConfigured()) {
+    const blobResult = await deleteBlob(document.blobUrl);
+    if (!blobResult.ok && blobResult.error.code !== "VALIDATION_ERROR") {
+      logger.warn("document.blob_delete_failed", {
+        documentId,
+        code: blobResult.error.code,
+        message: blobResult.error.message,
+      });
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.document.delete({ where: { id: document.id } });
+    if (
+      document.type === "PASSPORT_PHOTO" &&
+      application.photoUrl &&
+      application.photoUrl === document.blobUrl
+    ) {
+      await tx.admissionApplication.update({
+        where: { id: applicationId },
+        data: { photoUrl: null },
+      });
+    }
+  });
+
+  return ok({ deleted: true });
 }

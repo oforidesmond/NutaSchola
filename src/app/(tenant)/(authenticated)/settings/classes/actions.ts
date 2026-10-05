@@ -135,3 +135,115 @@ export async function createSection(
     return fail(actionError.code, actionError.message, actionError.fieldErrors);
   }
 }
+
+export async function updateSection(
+  formData: FormData,
+): Promise<ActionResult<{ saved: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ACADEMIC_MANAGE);
+    const id = String(formData.get("id") ?? "");
+    const parsed = z
+      .object({ name: z.string().min(1, "Section name is required") })
+      .safeParse({ name: formData.get("name") });
+    if (!parsed.success) {
+      return fail("VALIDATION_ERROR", "Please fix the highlighted fields.", fieldErrorsFromZod(parsed.error));
+    }
+
+    const existing = await prisma.section.findFirst({
+      where: { id, schoolId: tenant.schoolId },
+    });
+    if (!existing) return fail("NOT_FOUND", "Section not found.");
+
+    await prisma.section.update({
+      where: { id },
+      data: { name: parsed.data.name },
+    });
+    revalidatePath("/settings/classes");
+    return ok({ saved: true });
+  } catch (error) {
+    const actionError = toActionError(error);
+    return fail(actionError.code, actionError.message, actionError.fieldErrors);
+  }
+}
+
+export async function deleteSection(
+  sectionId: string,
+): Promise<ActionResult<{ deleted: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ACADEMIC_MANAGE);
+    const existing = await prisma.section.findFirst({
+      where: { id: sectionId, schoolId: tenant.schoolId },
+      include: { _count: { select: { enrollments: true } } },
+    });
+    if (!existing) return fail("NOT_FOUND", "Section not found.");
+
+    if (existing._count.enrollments > 0) {
+      return fail(
+        "CONFLICT",
+        "Cannot delete this section because students are enrolled in it. Move or remove those enrollments first.",
+      );
+    }
+
+    await prisma.section.delete({ where: { id: sectionId } });
+    revalidatePath("/settings/classes");
+    return ok({ deleted: true });
+  } catch (error) {
+    const actionError = toActionError(error);
+    return fail(actionError.code, actionError.message, actionError.fieldErrors);
+  }
+}
+
+export async function deleteClassLevel(
+  classLevelId: string,
+): Promise<ActionResult<{ deleted: true }>> {
+  try {
+    const { tenant } = await requireAction(ACTIONS.ACADEMIC_MANAGE);
+    const existing = await prisma.classLevel.findFirst({
+      where: { id: classLevelId, schoolId: tenant.schoolId },
+      include: {
+        _count: {
+          select: {
+            enrollments: true,
+            admissionApplications: true,
+            sections: true,
+          },
+        },
+      },
+    });
+    if (!existing) return fail("NOT_FOUND", "Class level not found.");
+
+    if (existing._count.enrollments > 0) {
+      return fail(
+        "CONFLICT",
+        "Cannot delete this class because students are enrolled in it.",
+      );
+    }
+    if (existing._count.admissionApplications > 0) {
+      return fail(
+        "CONFLICT",
+        "Cannot delete this class because admission applications reference it.",
+      );
+    }
+
+    // Sections cascade; block if any section still has enrollments (defensive).
+    const sectionEnrollmentCount = await prisma.enrollment.count({
+      where: {
+        schoolId: tenant.schoolId,
+        section: { classLevelId },
+      },
+    });
+    if (sectionEnrollmentCount > 0) {
+      return fail(
+        "CONFLICT",
+        "Cannot delete this class because a section still has enrollments.",
+      );
+    }
+
+    await prisma.classLevel.delete({ where: { id: classLevelId } });
+    revalidatePath("/settings/classes");
+    return ok({ deleted: true });
+  } catch (error) {
+    const actionError = toActionError(error);
+    return fail(actionError.code, actionError.message, actionError.fieldErrors);
+  }
+}
