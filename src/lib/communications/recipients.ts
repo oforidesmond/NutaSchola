@@ -13,9 +13,48 @@ export type GuardianSmsRecipient = {
  */
 export async function resolveGuardianSmsRecipients(input: {
   schoolId: string;
-  audience: "all_primary" | "class";
+  audience: "all_primary" | "class" | "outstanding_fees";
   classLevelId?: string | null;
 }): Promise<GuardianSmsRecipient[]> {
+  if (input.audience === "outstanding_fees") {
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        schoolId: input.schoolId,
+        studentId: { not: null },
+        status: { in: ["ISSUED", "PARTIALLY_PAID"] },
+        student: { deletedAt: null },
+      },
+      select: {
+        student: {
+          select: {
+            guardians: {
+              include: { guardian: true },
+              orderBy: [{ isPrimaryContact: "desc" }, { id: "asc" }],
+            },
+          },
+        },
+      },
+    });
+
+    const byPhone = new Map<string, GuardianSmsRecipient>();
+    for (const invoice of invoices) {
+      if (!invoice.student) continue;
+      const primary =
+        invoice.student.guardians.find((g) => g.isPrimaryContact && g.guardian.phone?.trim()) ??
+        invoice.student.guardians.find((g) => g.guardian.phone?.trim());
+      if (!primary) continue;
+      const phones = uniqueNormalizedPhones([primary.guardian.phone, primary.guardian.altPhone]);
+      const phone = phones[0];
+      if (!phone || byPhone.has(phone)) continue;
+      byPhone.set(phone, {
+        phone: primary.guardian.phone,
+        guardianId: primary.guardian.id,
+        firstName: primary.guardian.firstName,
+      });
+    }
+    return [...byPhone.values()];
+  }
+
   if (input.audience === "class" && input.classLevelId) {
     const enrollments = await prisma.enrollment.findMany({
       where: {

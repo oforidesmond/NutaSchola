@@ -75,7 +75,7 @@ export async function searchGuardiansForSmsAction(
 const composeSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
   body: z.string().trim().min(1, "Message is required").max(640),
-  audience: z.enum(["all_primary", "class", "guardian", "custom_phone"]),
+  audience: z.enum(["all_primary", "class", "outstanding_fees", "guardian", "custom_phone"]),
   classLevelId: z.string().optional(),
   guardianIds: z.array(z.string().min(1)).optional(),
   customPhone: z.string().optional(),

@@ -11,7 +11,7 @@ import {
 
 type ClassOption = { id: string; name: string };
 
-type Audience = "all_primary" | "class" | "guardian" | "custom_phone";
+type Audience = "all_primary" | "class" | "outstanding_fees" | "guardian" | "custom_phone";
 
 const inputClass =
   "min-h-11 w-full rounded-[var(--radius-sm)] border border-[var(--gray-200)] bg-[var(--white)] px-3 text-base";
@@ -35,6 +35,7 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [creditsAlertOpen, setCreditsAlertOpen] = useState(false);
   const [pendingForm, setPendingForm] = useState<FormData | null>(null);
 
   const [guardianQuery, setGuardianQuery] = useState("");
@@ -142,6 +143,10 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
     setConfirmOpen(false);
     setPendingForm(null);
     if (!result.ok) {
+      if (result.error.code === "SMS_CREDITS_EXHAUSTED") {
+        setCreditsAlertOpen(true);
+        return;
+      }
       setError(result.error.message);
       if (result.error.fieldErrors) setFieldErrors(result.error.fieldErrors);
       return;
@@ -225,6 +230,7 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
         >
           <option value="all_primary">All primary guardians</option>
           <option value="class">By class (enrolled students)</option>
+          <option value="outstanding_fees">Outstanding school fees</option>
           <option value="guardian">Select guardians</option>
           <option value="custom_phone">Custom phone numbers</option>
         </select>
@@ -413,6 +419,16 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
             setPendingForm(null);
           }
         }}
+      />
+
+      <ConfirmDialog
+        open={creditsAlertOpen}
+        title="SMS credits finished"
+        consequence="Your SMS credits are finished, so this message was not sent. Please top up to continue sending messages."
+        confirmLabel="Got it"
+        cancelLabel="Close"
+        onConfirm={() => setCreditsAlertOpen(false)}
+        onCancel={() => setCreditsAlertOpen(false)}
       />
     </form>
   );
