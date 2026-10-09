@@ -12,7 +12,15 @@ import {
   resolveGuardianSmsRecipients,
   type GuardianSmsRecipient,
 } from "@/lib/communications/recipients";
-import { dispatchSms, canUseEbits, normalizeGhPhone, parseGhPhoneList, sendSms } from "@/lib/sms";
+import {
+  dispatchSms,
+  canUseEbits,
+  normalizeGhPhone,
+  parseGhPhoneList,
+  sendSms,
+  SMS_CREDITS_EXHAUSTED_CODE,
+  SMS_CREDITS_EXHAUSTED_MESSAGE,
+} from "@/lib/sms";
 
 const MAX_BULK_RECIPIENTS = 100;
 
@@ -169,10 +177,7 @@ export async function composeGuardianSmsAction(
     }
 
     if (!canUseEbits()) {
-      return fail(
-        "SMS_CREDITS_EXHAUSTED",
-        "Your SMS credits are finished. Please top up to continue sending messages.",
-      );
+      return fail(SMS_CREDITS_EXHAUSTED_CODE, SMS_CREDITS_EXHAUSTED_MESSAGE);
     }
 
     if (parsed.data.classLevelId) {

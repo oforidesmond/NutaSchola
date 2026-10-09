@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/primitives";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SmsCreditsAlertDialog } from "@/components/ui/SmsCreditsAlertDialog";
+import { SMS_CREDITS_EXHAUSTED_CODE } from "@/lib/sms/credits";
 import { sendBulkAdmissionFeeArrearsRemindersAction } from "./actions";
 
 export function BulkArrearsRemindButton({
@@ -13,6 +15,7 @@ export function BulkArrearsRemindButton({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [creditsAlertOpen, setCreditsAlertOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +28,10 @@ export function BulkArrearsRemindButton({
     setLoading(false);
     setOpen(false);
     if (!result.ok) {
+      if (result.error.code === SMS_CREDITS_EXHAUSTED_CODE) {
+        setCreditsAlertOpen(true);
+        return;
+      }
       setError(result.error.message);
       return;
     }
@@ -68,6 +75,10 @@ export function BulkArrearsRemindButton({
         onCancel={() => {
           if (!loading) setOpen(false);
         }}
+      />
+      <SmsCreditsAlertDialog
+        open={creditsAlertOpen}
+        onClose={() => setCreditsAlertOpen(false)}
       />
     </div>
   );

@@ -18,7 +18,13 @@ import { convertApplicantToStudent } from "@/lib/admissions/convert";
 import { nextAdmissionNumber } from "@/lib/admissions/numbering";
 import { findOrCreateGuardian, linkGuardianToApplication, setPrimaryApplicationGuardian, unlinkGuardianFromApplication, updateGuardianRecord } from "@/lib/admissions/guardians";
 import { notifyStageChange, notifyAdmissionFeeDue, notifyAdmissionFeePayment, notifyAdmissionFeeArrears } from "@/lib/admissions/notify";
-import { resolvePrimaryGuardianContact, normalizeGhPhone } from "@/lib/sms";
+import {
+  resolvePrimaryGuardianContact,
+  normalizeGhPhone,
+  canUseEbits,
+  SMS_CREDITS_EXHAUSTED_CODE,
+  SMS_CREDITS_EXHAUSTED_MESSAGE,
+} from "@/lib/sms";
 import { PAYMENT_METHOD_LABELS } from "@/lib/admissions/labels";
 import { feeOutstanding } from "@/lib/admissions/fees";
 import { generateSchoolFeesInvoice, recordInvoicePayment } from "@/lib/fees";
@@ -711,6 +717,10 @@ export async function sendAdmissionFeeArrearsReminderAction(
         "SMS_DISABLED",
         "SMS notifications are disabled for this school. Enable them in School settings.",
       );
+    }
+
+    if (!canUseEbits()) {
+      return fail(SMS_CREDITS_EXHAUSTED_CODE, SMS_CREDITS_EXHAUSTED_MESSAGE);
     }
 
     const guardian = await resolvePrimaryGuardianContact(application.id);

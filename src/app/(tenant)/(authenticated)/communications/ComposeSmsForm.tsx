@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Input } from "@/components/ui/primitives";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SmsCreditsAlertDialog } from "@/components/ui/SmsCreditsAlertDialog";
+import { SMS_CREDITS_EXHAUSTED_CODE } from "@/lib/sms/credits";
 import {
   composeGuardianSmsAction,
   searchGuardiansForSmsAction,
@@ -143,7 +145,7 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
     setConfirmOpen(false);
     setPendingForm(null);
     if (!result.ok) {
-      if (result.error.code === "SMS_CREDITS_EXHAUSTED") {
+      if (result.error.code === SMS_CREDITS_EXHAUSTED_CODE) {
         setCreditsAlertOpen(true);
         return;
       }
@@ -421,14 +423,9 @@ export function ComposeSmsForm({ classLevels }: { classLevels: ClassOption[] }) 
         }}
       />
 
-      <ConfirmDialog
+      <SmsCreditsAlertDialog
         open={creditsAlertOpen}
-        title="SMS credits finished"
-        consequence="Your SMS credits are finished, so this message was not sent. Please top up to continue sending messages."
-        confirmLabel="Got it"
-        cancelLabel="Close"
-        onConfirm={() => setCreditsAlertOpen(false)}
-        onCancel={() => setCreditsAlertOpen(false)}
+        onClose={() => setCreditsAlertOpen(false)}
       />
     </form>
   );

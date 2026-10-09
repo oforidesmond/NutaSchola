@@ -7,7 +7,12 @@ import { ACTIONS } from "@/lib/permissions";
 import { fail, ok, toActionError, type ActionResult } from "@/lib/errors";
 import { feeOutstanding } from "@/lib/admissions/fees";
 import { notifyAdmissionFeeArrears } from "@/lib/admissions/notify";
-import { normalizeGhPhone } from "@/lib/sms";
+import {
+  canUseEbits,
+  normalizeGhPhone,
+  SMS_CREDITS_EXHAUSTED_CODE,
+  SMS_CREDITS_EXHAUSTED_MESSAGE,
+} from "@/lib/sms";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -36,6 +41,10 @@ export async function sendBulkAdmissionFeeArrearsRemindersAction(): Promise<
         "SMS_DISABLED",
         "SMS notifications are disabled for this school. Enable them in School settings.",
       );
+    }
+
+    if (!canUseEbits()) {
+      return fail(SMS_CREDITS_EXHAUSTED_CODE, SMS_CREDITS_EXHAUSTED_MESSAGE);
     }
 
     const applications = await prisma.admissionApplication.findMany({

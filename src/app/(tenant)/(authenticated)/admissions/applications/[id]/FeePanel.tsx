@@ -5,11 +5,13 @@ import type { InvoiceStatus, PaymentMethod } from "@prisma/client";
 import { Printer } from "lucide-react";
 import { Button, Input, StatusBadge } from "@/components/ui/primitives";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SmsCreditsAlertDialog } from "@/components/ui/SmsCreditsAlertDialog";
 import { FeeProgress } from "@/components/ui/FeeProgress";
 import { AdmissionFeeReceiptDialog } from "@/components/receipts/AdmissionFeeReceiptDialog";
 import { ADMISSION_PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from "@/lib/admissions/labels";
 import { feeOutstanding } from "@/lib/admissions/fees";
 import { formatDateAccra, formatGhs } from "@/lib/format/currency";
+import { SMS_CREDITS_EXHAUSTED_CODE } from "@/lib/sms/credits";
 import type { ReportSchoolBrand } from "@/lib/reports/types";
 import type { ReceiptApplicant } from "@/lib/receipts/types";
 import {
@@ -78,6 +80,7 @@ export function FeePanel({
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [arrearsConfirmOpen, setArrearsConfirmOpen] = useState(false);
+  const [creditsAlertOpen, setCreditsAlertOpen] = useState(false);
   const [waiverReason, setWaiverReason] = useState(admissionFeeWaivedReason ?? "");
   const [pendingSummary, setPendingSummary] = useState<{
     amount: string;
@@ -172,6 +175,10 @@ export function FeePanel({
     setLoading(false);
     setArrearsConfirmOpen(false);
     if (!result.ok) {
+      if (result.error.code === SMS_CREDITS_EXHAUSTED_CODE) {
+        setCreditsAlertOpen(true);
+        return;
+      }
       setError(result.error.message);
       return;
     }
@@ -428,6 +435,10 @@ export function FeePanel({
         onCancel={() => {
           if (!loading) setArrearsConfirmOpen(false);
         }}
+      />
+      <SmsCreditsAlertDialog
+        open={creditsAlertOpen}
+        onClose={() => setCreditsAlertOpen(false)}
       />
     </section>
   );
