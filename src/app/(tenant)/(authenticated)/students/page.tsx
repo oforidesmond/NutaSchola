@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { PageHeader, StatusBadge } from "@/components/ui/primitives";
 import { requirePageAccess } from "@/lib/auth/session";
-import { ACTIONS } from "@/lib/permissions";
+import { ACTIONS, can } from "@/lib/permissions";
 import { prisma } from "@/lib/db/prisma";
+import { BulkGenerateInvoicesButton } from "./BulkGenerateInvoicesButton";
 
 export default async function StudentsListPage({
   searchParams,
 }: {
   searchParams: Promise<{ showInactive?: string }>;
 }) {
-  const { tenant } = await requirePageAccess(ACTIONS.FEES_READ);
+  const { user, tenant } = await requirePageAccess(ACTIONS.FEES_READ);
+  const canManageFees = can(user.role, ACTIONS.FEES_MANAGE);
   const { showInactive } = await searchParams;
   const includeInactive = showInactive === "1";
 
@@ -44,6 +46,11 @@ export default async function StudentsListPage({
           </Link>
         }
       />
+      {canManageFees ? (
+        <div className="mt-4">
+          <BulkGenerateInvoicesButton />
+        </div>
+      ) : null}
       <ul className="mt-4 divide-y divide-[var(--gray-100)] rounded-[var(--radius-md)] border border-[var(--gray-100)] bg-[var(--white)]">
         {students.length === 0 ? (
           <li className="px-4 py-6 text-[15px] text-[var(--gray-600)]">
